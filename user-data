@@ -1,0 +1,53 @@
+#cloud-config
+debug: True
+disable_root: False
+ssh_pwauth: True
+ssh_authorized_keys:
+  - SSH_PUBLIC_KEY
+package_update: True
+package_upgrade: True
+package_reboot_if_required: True
+
+packages:
+  - jq
+  - libvirt-clients
+  - libvirt-daemon-system
+  - python3-virtualenv
+  - virtinst
+
+chpasswd:
+  expire: False
+  list:
+    - root:linux
+    - ubuntu:ubuntu
+
+write_files:
+- encoding: b64
+  content: SETUP_SCRIPT
+  path: /usr/bin/maas-test-setup.sh
+  permissions: 0755
+- encoding: b64
+  content: ADD_MACHINE_SCRIPT
+  path: /usr/bin/add-machine.sh
+  permissions: 0755
+- encoding: b64
+  content: MAAS_SSH_PRIVATE_KEY
+  path: /root/.ssh/id_rsa
+  permissions: 0600
+- encoding: b64
+  content: MAAS_SSH_PUBLIC_KEY
+  path: /root/.ssh/id_rsa.pub
+  permissions: 0644
+- encoding: b64
+  content: VIMRC
+  path: /etc/vim/vimrc.local
+  permissions: 0644
+
+runcmd:
+  - [maas-test-setup.sh]
+
+final_message: The MAAS server is ready
+
+# Local Variables:
+# mode: yaml
+# End:
