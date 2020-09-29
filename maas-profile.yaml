@@ -1,0 +1,46 @@
+config:
+  user.network-config: |
+    version: 1
+    config:
+      - type: physical
+        name: eth0
+        subnets:
+          - type: dhcp
+      - type: physical
+        name: eth1
+      - type: bridge
+        name: br0
+        bridge_interfaces:
+          - eth1
+        subnets:
+          - type: dhcp
+  user.user-data: |
+    #cloud-config
+    runcmd:
+      - [apt, update]
+      - [apt, --yes, upgrade]
+      - [snap, install, maas-test-db]
+      - [snap, install, --channel, MAAS_CHANNEL, maas]
+      - [maas, init, region+rack, --database-uri, maas-test-db:///, --maas-url, http://localhost:5240/MAAS]
+      - [maas, createadmin, --username, admin, --password, admin, --email, admin@example.com]
+      - id
+      - ls -lah /
+      - maas apikey --username admin > /run/root/admin-api-key
+    final_message: The MAAS server is ready
+devices:
+  eth0:
+    name: eth0
+    nictype: bridged
+    parent: lxdbr0
+    type: nic
+  eth1:
+    name: eth1
+    nictype: bridged
+    parent: lxdbr0
+    type: nic
+  root:
+    path: /
+    pool: default
+    type: disk
+name: maas-profile
+used_by: []

@@ -1,0 +1,12 @@
+version: 2
+ethernets:
+  DEVICE:
+    match:
+      name: "DEVICE"
+    dhcp4: DHCP
+    addresses: [ADDRESS]
+    mtu: 1500
+
+# Local Variables:
+# mode: yaml
+# End:
