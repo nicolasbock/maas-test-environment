@@ -83,8 +83,8 @@ maas init region+rack \
 maas createadmin \
   --username ubuntu \
   --password ubuntu \
-  --email maastest@ubuntu.com\
-  --ssh-import lp:LP_KEYNAME
+  --email maastest@ubuntu.com \
+  $([[ ${LP_KEYNAME} != undefined ]] && echo "--ssh-import lp:LP_KEYNAME")
 
 maas apikey --username ubuntu > /root/ubuntu-api-key
 apikey=`maas apikey --username ubuntu`
