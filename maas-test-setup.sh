@@ -75,6 +75,7 @@ snap refresh
 snap install maas-test-db
 snap install --channel MAAS_CHANNEL maas
 snap install --channel JUJU_CHANNEL --classic juju
+snap install --classic openstackclients
 
 # Create admin creds and login
 maas init region+rack \

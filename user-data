@@ -12,6 +12,7 @@ packages:
   - jq
   - libvirt-clients
   - libvirt-daemon-system
+  - python3-virtualenv
   - virtinst
 
 chpasswd:
