@@ -43,12 +43,12 @@ cat <<- 'EOF' > ~ubuntu/juju/bootstrap.sh
 declare -a model_config=()
 declare -a model_defaults=(
     'image-stream=released'
-    'default-series=bionic'
+    'default-series=focal'
     'apt-http-proxy=http://10.0.0.2:8000'
 )
 for d in ${model_defaults[@]}; do model_config+=( "--config $d" ); done
 juju bootstrap mymaas --no-gui --constraints "tags=bootstrap" \
-  --constraints "mem=2G" ${model_config[@]} os_controller --debug
+    --constraints "mem=2G" ${model_config[@]} os_controller --debug
 juju model-defaults ${model_defaults[@]}
 juju add-model openstack
 juju switch openstack
@@ -113,9 +113,9 @@ credentials:
 
 __EOF__
 juju add-cloud mymaas /tmp/mymaas_cloud.txt || \
-  juju update-cloud mymaas --client -f /tmp/mymaas_cloud.txt
+    juju update-cloud mymaas --client -f /tmp/mymaas_cloud.txt
 juju add-credential mymaas -f /tmp/mymaas_credentials.txt || \
-  juju update-credential mymaas --client -f /tmp/mymaas_credentials.txt
+    juju update-credential mymaas --client -f /tmp/mymaas_credentials.txt
 
 /home/ubuntu/juju/bootstrap.sh
 EOF
@@ -148,8 +148,15 @@ while true; do
   sleep 1
 done
 
-maas admin maas set-config name=commissioning_distro_series value=bionic
-maas admin maas set-config name=default_distro_series value=bionic
+while true; do
+  if maas admin boot-resources read | jq -e '.[] | select(.name == "ubuntu/focal" and .type == "Synced")'; then
+    break
+  fi
+  sleep 1
+done
+
+maas admin maas set-config name=commissioning_distro_series value=focal
+maas admin maas set-config name=default_distro_series value=focal
 
 # Setup networking
 maas admin spaces create name=oam
