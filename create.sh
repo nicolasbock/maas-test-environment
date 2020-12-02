@@ -31,6 +31,54 @@ upload_volume() {
   virsh vol-upload --pool default ${imagename} ${imagefile}
 }
 
+refresh_cloud_image() {
+  echo "Refreshing cloud images"
+  for series in bionic focal; do
+    image=${series}-server-cloudimg-amd64.img
+    wget --show-progress --continue --timestamping \
+      https://cloud-images.ubuntu.com/${series}/current/${image}
+
+    if ! virsh vol-path ${image} default; then
+      upload_volume ${image}
+      continue
+    fi
+
+    new_md5sum=$(md5sum ${image} | awk '{print $1}')
+    old_md5sum=$(sudo md5sum $(virsh vol-path ${image} default) | awk '{print $1}')
+
+    if [[ ${new_md5sum} != ${old_md5sum} ]]; then
+      echo "Updating image ${image}"
+      upload_volume ${image}
+    fi
+  done
+}
+
+create_network() {
+  local net_name=$1
+  local net_subnet=$2
+
+  if virsh net-info ${net_name}; then
+    virsh net-destroy ${net_name} || :
+    virsh net-undefine ${net_name} || :
+  fi
+  virsh net-define <(sed --expression "s:NAME:${net_name}:" \
+    --expression "s:NET:${net_subnet}:" maas-net.xml)
+  virsh net-autostart ${net_name}
+  virsh net-start ${net_name}
+  network_options=(
+    ${network_options[@]}
+    --network network=${net_name},model=virtio,address.type="pci",address.slot=$((slot_offset))
+  )
+  sed --expression "s:DEVICE:ens${slot_offset}:" \
+    --expression "s:DHCP:false:" \
+    --expression "s:ADDRESS:10.${net_subnet}.0.2/24:" \
+    network-config > ${tempdir}/new-interface.yaml
+  yq merge --inplace \
+    ${ci_tempdir}/network-config \
+    ${tempdir}/new-interface.yaml
+  slot_offset=$((slot_offset + 1))
+}
+
 while (( $# > 0 )); do
   case $1 in
     --help|-h)
@@ -65,25 +113,7 @@ if [[ ${debug} = 1 ]]; then
 fi
 
 if [[ ${refresh} = 1 ]]; then
-  echo "Refreshing cloud images"
-  for series in bionic focal; do
-    image=${series}-server-cloudimg-amd64.img
-    wget --show-progress --continue --timestamping \
-      https://cloud-images.ubuntu.com/${series}/current/${image}
-
-    if ! virsh vol-path ${image} default; then
-      upload_volume ${image}
-      continue
-    fi
-
-    new_md5sum=$(md5sum ${image} | awk '{print $1}')
-    old_md5sum=$(sudo md5sum $(virsh vol-path ${image} default) | awk '{print $1}')
-
-    if [[ ${new_md5sum} != ${old_md5sum} ]]; then
-      echo "Updating image ${image}"
-      upload_volume ${image}
-    fi
-  done
+  refresh_cloud_image
 fi
 
 echo "Purging existing MAAS server"
@@ -109,27 +139,9 @@ declare -a network_options
 slot_offset=3
 touch ${ci_tempdir}/network-config
 for network in ${!networks[@]}; do
-  if virsh net-info ${network}; then
-    virsh net-destroy ${network} || :
-    virsh net-undefine ${network} || :
-  fi
-  virsh net-define <(sed --expression "s:NAME:${network}:" \
-    --expression "s:NET:${networks[${network}]}:" maas-net.xml)
-  virsh net-autostart ${network}
-  virsh net-start ${network}
-  network_options=(
-    ${network_options[@]}
-    --network network=${network},model=virtio,address.type="pci",address.slot=$((slot_offset))
-  )
-  sed --expression "s:DEVICE:ens${slot_offset}:" \
-    --expression "s:DHCP:false:" \
-    --expression "s:ADDRESS:10.${networks[${network}]}.0.2/24:" \
-    network-config > ${tempdir}/new-interface.yaml
-  yq merge --inplace \
-    ${ci_tempdir}/network-config \
-    ${tempdir}/new-interface.yaml
-  slot_offset=$((slot_offset + 1))
+  create_network ${network} ${networks[${network}]}
 done
+
 sed --expression "s:DEVICE:ens${slot_offset}:" \
   --expression "s:DHCP:true:" \
   --expression "/^.*addresses.*/d" \
@@ -184,6 +196,8 @@ upload_volume ${tempdir}/maas-server.qcow2
 
 virt-install --name maas-server \
   --memory 4096 \
+  --cpu host-passthrough,cache.mode=passthrough \
+  --vcpus maxvcpus=2 \
   --disk vol=default/maas-server.qcow2,bus=virtio,sparse=true \
   --disk vol=default/maas-server-config-drive.iso,bus=virtio,format=raw \
   --boot hd \
@@ -202,3 +216,6 @@ while true; do
 done
 
 echo "MAAS server can be reached at ${MAAS_IP}"
+echo "    http://${MAAS_IP}:5240/MAAS"
+echo "You can check the installation progress by running"
+echo "    virsh console maas-server"
