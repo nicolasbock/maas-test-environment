@@ -50,8 +50,6 @@ for d in ${model_defaults[@]}; do model_config+=( "--config $d" ); done
 juju bootstrap mymaas --no-gui --constraints "tags=bootstrap" \
     --constraints "mem=2G" ${model_config[@]} os_controller --debug
 juju model-defaults ${model_defaults[@]}
-juju add-model openstack
-juju switch openstack
 EOF
 chmod -R +x ~ubuntu/juju
 
