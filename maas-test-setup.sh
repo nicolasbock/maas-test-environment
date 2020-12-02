@@ -123,8 +123,11 @@ chmod +x ~ubuntu/juju/gencloud.sh
 
 chown -R ubuntu: ~ubuntu/juju
 
-sudo --login --user ubuntu -- \
-  git clone https://git.launchpad.net/stsstack-bundles
+while ! sudo --login --user ubuntu -- \
+  git clone https://git.launchpad.net/stsstack-bundles; do
+  rm -rf stsstack-bundles
+  sleep 1
+done
 
 # Set upstream dns (ensuring dns-sec compat)
 maas admin maas set-config name=upstream_dns value=1.1.1.1
