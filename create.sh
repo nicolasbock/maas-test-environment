@@ -230,15 +230,7 @@ if [[ $console == 1 ]]; then
     virsh console maas-server
 fi
 
-while true; do
-    MAAS_IP=$(virsh domifaddr maas-server | grep ipv4 | awk '{print $4}' | cut -d / -f 1)
-    if [[ -z ${MAAS_IP} ]]; then
-        sleep 1
-        continue
-    fi
-    break
-done
-
+MAAS_IP=10.0.${MANAGEMENT_NET}.2
 echo "MAAS server can be reached at ${MAAS_IP}"
 echo "    http://${MAAS_IP}:5240/MAAS"
 echo "You can check the installation progress by running"
