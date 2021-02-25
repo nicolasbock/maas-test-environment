@@ -230,6 +230,8 @@ if [[ $console == 1 ]]; then
     virsh console maas-server
 fi
 
+ssh-keygen -R 10.0.${MANAGEMENT_NET}.2
+
 MAAS_IP=10.0.${MANAGEMENT_NET}.2
 echo "MAAS server can be reached at ${MAAS_IP}"
 echo "    http://${MAAS_IP}:5240/MAAS"

@@ -132,7 +132,7 @@ virt-install \
     --os-variant generic \
     --noautoconsole
 
-ip=$(virsh domifaddr maas-server | grep ipv4 | awk '{print $4}' | awk -F/ '{print $1}')
+ip=10.0.0.2
 mac=$(xmllint --xpath "//source[@network='maas-oam-net']/../mac/@address" <(virsh dumpxml ${vm_id}) \
     | awk -F= '{print $2}' | tr --delete '"')
 
