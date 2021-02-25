@@ -10,6 +10,7 @@ arguments for the script are:
     -s | --series   The Ubuntu series (default: ${SERIES})
     -r | --refresh  Refresh cloud images
     -d | --debug    Print debugging information
+    -c | --console  Attach to VM console after creating it
 
 The script will destroy an existing `maas-server` VM and rebuild it.
 
