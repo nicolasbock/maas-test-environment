@@ -46,7 +46,9 @@ declare -a model_defaults=(
     'default-series=focal'
     'apt-http-proxy=http://10.0.0.2:8000'
 )
-for d in ${model_defaults[@]}; do model_config+=( "--config $d" ); done
+for d in ${model_defaults[@]}; do
+    model_config+=( "--config $d" )
+done
 juju bootstrap mymaas --no-gui --constraints "tags=bootstrap" \
     --constraints "mem=2G" ${model_config[@]} os_controller --debug
 juju model-defaults ${model_defaults[@]}
@@ -77,19 +79,19 @@ snap install --classic openstackclients
 
 # Create admin creds and login
 maas init region+rack \
-  --maas-url http://localhost:5240/MAAS \
-  --database-uri maas-test-db:///
+    --maas-url http://localhost:5240/MAAS \
+    --database-uri maas-test-db:///
 maas createadmin \
-  --username ubuntu \
-  --password ubuntu \
-  --email maastest@ubuntu.com \
-  $([[ ${LP_KEYNAME} != undefined ]] && echo "--ssh-import lp:LP_KEYNAME")
+    --username ubuntu \
+    --password ubuntu \
+    --email maastest@ubuntu.com \
+    $([[ ${LP_KEYNAME} != undefined ]] && echo "--ssh-import lp:LP_KEYNAME")
 
 maas apikey --username ubuntu > /root/ubuntu-api-key
 apikey=`maas apikey --username ubuntu`
 while true; do
-  maas login admin http://127.0.0.1:5240/MAAS $apikey && break
-  sleep 1
+    maas login admin http://127.0.0.1:5240/MAAS $apikey && break
+    sleep 1
 done
 
 cat << 'EOF' > ~ubuntu/juju/gencloud.sh
@@ -124,9 +126,9 @@ chmod +x ~ubuntu/juju/gencloud.sh
 chown -R ubuntu: ~ubuntu/juju
 
 while ! sudo --login --user ubuntu -- \
-  git clone https://git.launchpad.net/stsstack-bundles; do
-  rm -rf stsstack-bundles
-  sleep 1
+    git clone https://git.launchpad.net/stsstack-bundles; do
+    rm -rf stsstack-bundles
+    sleep 1
 done
 
 # Set upstream dns (ensuring dns-sec compat)
@@ -138,22 +140,22 @@ maas admin maas set-config name=ntp_server value=ntp.ubuntu.com
 
 # Sync distros
 maas admin boot-source-selections create 1 os="ubuntu" release="focal" \
-  arches="amd64" subarches="*" labels="*" || :
+    arches="amd64" subarches="*" labels="*" || :
 
 maas admin boot-resources read
 
 while true; do
-  if maas admin boot-resources read | jq -e '.[] | select(.name == "ubuntu/bionic" and .type == "Synced")'; then
-    break
-  fi
-  sleep 1
+    if maas admin boot-resources read | jq -e '.[] | select(.name == "ubuntu/bionic" and .type == "Synced")'; then
+        break
+    fi
+    sleep 1
 done
 
 while true; do
-  if maas admin boot-resources read | jq -e '.[] | select(.name == "ubuntu/focal" and .type == "Synced")'; then
-    break
-  fi
-  sleep 1
+    if maas admin boot-resources read | jq -e '.[] | select(.name == "ubuntu/focal" and .type == "Synced")'; then
+        break
+    fi
+    sleep 1
 done
 
 maas admin maas set-config name=commissioning_distro_series value=focal
@@ -170,7 +172,7 @@ maas admin spaces create name=k8s
 # Default all to oam (then change below)
 read -a fabrics<<<`maas admin fabrics read | jq .[].id`
 for fabric in ${fabrics[@]}; do
-  maas admin vlan update $fabric 0 space=oam
+    maas admin vlan update $fabric 0 space=oam
 done
 
 ab=10.0
@@ -182,62 +184,62 @@ maas admin subnet update $subnet_id gateway_ip=$gw
 maas admin subnet update $subnet_id dns_servers=$dns
 
 maas admin ipranges create type=reserved subnet="$subnet_id" \
-  comment="Infra (maas node etc)" \
-  start_ip=${ab}.0.1 end_ip=${ab}.0.2 \
-  gateway_ip=$gw dns_servers=$dns
+    comment="Infra (maas node etc)" \
+    start_ip=${ab}.0.1 end_ip=${ab}.0.2 \
+    gateway_ip=$gw dns_servers=$dns
 
 maas admin ipranges create type=dynamic subnet="$subnet_id" \
-  comment="Enlisting, commissioning etc" \
-  start_ip=${ab}.0.3 end_ip=${ab}.0.100
+    comment="Enlisting, commissioning etc" \
+    start_ip=${ab}.0.3 end_ip=${ab}.0.100
 
 primary=`maas admin rack-controllers read | jq .[].system_id | tr -d '"'`
 fabric=$(maas admin subnets read | jq ".[] | select(.cidr == \"${cidr}\") | .vlan.fabric" | tr -d '"')
 maas admin vlan update ${fabric} 0 dhcp_on=true \
-  primary_rack=$primary
+    primary_rack=$primary
 
 declare -A cidrs=(
-  [admin]=24
-  [public]=24
-  [internal]=24
-  [external]=24
-  [k8s]=24
+    [admin]=24
+    [public]=24
+    [internal]=24
+    [external]=24
+    [k8s]=24
 )
 
 declare -A dhcp=(
-  [admin]=true
-  [public]=true
-  [internal]=true
-  [external]=false
-  [k8s]=true
+    [admin]=true
+    [public]=true
+    [internal]=true
+    [external]=false
+    [k8s]=true
 )
 
 declare -A spaces=(
-  [admin]=1
-  [public]=2
-  [internal]=3
-  [external]=4
-  [k8s]=5
+    [admin]=1
+    [public]=2
+    [internal]=3
+    [external]=4
+    [k8s]=5
 )
 
 for space in ${!spaces[@]}; do
-  abc=10.${spaces[$space]}.0
-  gw=${abc}.2
-  dns=10.0.0.2  # <- MUST BE SET TO MAAS HOST IP
-  cidr=${abc}.0/${cidrs[$space]}
-  subnet_id=`maas admin subnets read | jq -r ".[] | select(.cidr==\"${cidr}\").id"`
-  fabric_id=`maas admin subnet read $subnet_id | jq .vlan.fabric_id`
-  maas admin subnet update $subnet_id gateway_ip=$gw
-  maas admin subnet update $subnet_id dns_servers=$dns
+    abc=10.${spaces[$space]}.0
+    gw=${abc}.2
+    dns=10.0.0.2  # <- MUST BE SET TO MAAS HOST IP
+    cidr=${abc}.0/${cidrs[$space]}
+    subnet_id=`maas admin subnets read | jq -r ".[] | select(.cidr==\"${cidr}\").id"`
+    fabric_id=`maas admin subnet read $subnet_id | jq .vlan.fabric_id`
+    maas admin subnet update $subnet_id gateway_ip=$gw
+    maas admin subnet update $subnet_id dns_servers=$dns
 
-  if [ "$space" = "external" ]; then
-    maas admin ipranges create type=reserved subnet="$subnet_id" \
-      comment="Floating IPs" \
-      start_ip=${abc}.200 end_ip=${abc}.254
-  fi
+    if [ "$space" = "external" ]; then
+        maas admin ipranges create type=reserved subnet="$subnet_id" \
+            comment="Floating IPs" \
+            start_ip=${abc}.200 end_ip=${abc}.254
+    fi
 
-  primary=`maas admin rack-controllers read | jq .[].system_id | tr -d '"'`
-  maas admin vlan update $fabric_id 0 space=$space \
-    primary_rack=$primary
+    primary=`maas admin rack-controllers read | jq .[].system_id | tr -d '"'`
+    maas admin vlan update $fabric_id 0 space=$space \
+        primary_rack=$primary
 done
 
 maas admin domain update 0 name=mylab.home
@@ -251,7 +253,7 @@ cp --verbose /root/.ssh/id_rsa{,.pub} /var/snap/maas/current/root/.ssh
 # Add KVM host
 # VIRSH_IP=$(ip route show default | awk '{print $3}')
 # maas admin vm-hosts create \
-#   type=virsh \
-#   power_address=qemu+ssh://VIRSH_USER@${VIRSH_IP}/system
+    #   type=virsh \
+    #   power_address=qemu+ssh://VIRSH_USER@${VIRSH_IP}/system
 
 echo "Done."

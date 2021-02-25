@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Setup Python
+        uses: actions/setup-python@v2
+
+      - name: Install packages
+        run: |
+          sudo apt update
+          sudo apt install --yes python3-pip
+          pip install bashate
+
+      - name: Lint
+        run: bashate --verbose --ignore E006 *.sh
