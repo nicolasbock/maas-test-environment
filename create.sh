@@ -95,6 +95,10 @@ Usage:
 EOF
       exit 0
       ;;
+    --series|-s)
+      shift
+      SERIES=$1
+      ;;
     --refresh|-r)
       refresh=1
       ;;
