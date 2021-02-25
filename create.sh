@@ -11,6 +11,7 @@ JUJU_CHANNEL=2.8/stable
 
 debug=0
 refresh=0
+console=0
 
 upload_volume() {
   local size
@@ -89,6 +90,7 @@ Usage:
 -s | --series   The Ubuntu series (default: ${SERIES})
 -r | --refresh  Refresh cloud images
 -d | --debug    Print debugging information
+-c | --console  Attach to VM console after creating it
 EOF
       exit 0
       ;;
@@ -97,6 +99,9 @@ EOF
       ;;
     --debug|-d)
       debug=1
+      ;;
+    --console|-c)
+      console=1
       ;;
     *)
       echo "unknown command line argument $1"
@@ -206,6 +211,9 @@ virt-install --name maas-server \
   ${network_options[@]} \
   --network network=default,model=virtio,address.type="pci",address.slot=$((slot_offset))
 
+if [[ $console == 1 ]]; then
+  virsh console maas-server
+fi
 while true; do
   MAAS_IP=$(virsh domifaddr maas-server | grep ipv4 | awk '{print $4}' | cut -d / -f 1)
   if [[ -z ${MAAS_IP} ]]; then
