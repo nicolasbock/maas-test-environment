@@ -6,6 +6,9 @@ ethernets:
     dhcp4: DHCP
     addresses: [ADDRESS]
     mtu: 1500
+    gateway4: GATEWAY
+    nameservers:
+      addresses: NAMESERVERS
 
 # Local Variables:
 # mode: yaml

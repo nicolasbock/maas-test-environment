@@ -13,6 +13,16 @@ debug=0
 refresh=0
 console=0
 
+MANAGEMENT_NET=0
+declare -A networks=(
+    [maas-oam-net]=${MANAGEMENT_NET}
+    [maas-admin-net]=1
+    [maas-internal-net]=2
+    [maas-public-net]=3
+    [maas-external-net]=4
+    [maas-k8s-net]=5
+)
+
 upload_volume() {
     local size
     local imagefile=$1
@@ -65,7 +75,7 @@ create_network() {
         virsh net-undefine ${net_name} || :
     fi
     virsh net-define <(sed --expression "s:NAME:${net_name}:" \
-        --expression "s:NETWORK:10.${net_subnet}.0.1:" maas-net.xml)
+        --expression "s:NETWORK:10.0.${net_subnet}.1:" maas-net.xml)
 
     virsh net-autostart ${net_name}
     virsh net-start ${net_name}
@@ -75,7 +85,13 @@ create_network() {
     )
     sed --expression "s:DEVICE:ens${slot_offset}:" \
         --expression "s:DHCP:false:" \
-        --expression "s:ADDRESS:10.${net_subnet}.0.2/24:" \
+        --expression "s:ADDRESS:10.0.${net_subnet}.2/24:" \
+        --expression $( (( net_subnet == ${MANAGEMENT_NET} )) \
+        && echo "s:GATEWAY:10.0.${MANAGEMENT_NET}.1:" \
+        || echo '/gateway4.*$/d') \
+        --expression $( (( net_subnet == ${MANAGEMENT_NET} )) \
+        && echo "s/NAMESERVERS/[10.0.${MANAGEMENT_NET}.1]/" \
+        || echo '/nameservers.*$/d --expression /^.*NAMESERVERS.*/d') \
         network-config > ${tempdir}/new-interface.yaml
     yq eval-all --inplace \
         'select(fileIndex == 0) * select(fileIndex == 1)' \
@@ -139,14 +155,6 @@ ci_tempdir=$(TMPDIR=${PWD} mktemp --directory)
 tempdir=$(TMPDIR=${PWD} mktemp --directory)
 
 echo "Configuring networks"
-declare -A networks=(
-    [maas-oam-net]=0
-    [maas-admin-net]=1
-    [maas-internal-net]=2
-    [maas-public-net]=3
-    [maas-external-net]=4
-    [maas-k8s-net]=5
-)
 
 declare -a network_options
 slot_offset=3
@@ -155,14 +163,7 @@ for network in ${!networks[@]}; do
     create_network ${network} ${networks[${network}]}
 done
 
-sed --expression "s:DEVICE:ens${slot_offset}:" \
-    --expression "s:DHCP:true:" \
-    --expression "/^.*addresses.*/d" \
-    network-config > ${tempdir}/new-interface.yaml
-yq eval-all --inplace \
-    'select(fileIndex == 0) * select(fileIndex == 1)' \
-    ${ci_tempdir}/network-config \
-    ${tempdir}/new-interface.yaml
+echo "network-config:"
 cat ${ci_tempdir}/network-config
 
 if ! ssh-keygen -l -f ~/.ssh/id_rsa_maas-test; then
@@ -217,8 +218,7 @@ virt-install --name maas-server \
     --boot hd \
     --noautoconsole \
     --os-type generic \
-    ${network_options[@]} \
-    --network network=default,model=virtio,address.type="pci",address.slot=$((slot_offset))
+    ${network_options[@]}
 
 if [[ $console == 1 ]]; then
     virsh console maas-server
