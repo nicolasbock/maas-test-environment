@@ -148,14 +148,14 @@ while true; do
     if maas admin boot-resources read | jq -e '.[] | select(.name == "ubuntu/bionic" and .type == "Synced")'; then
         break
     fi
-    sleep 1
+    sleep 10
 done
 
 while true; do
     if maas admin boot-resources read | jq -e '.[] | select(.name == "ubuntu/focal" and .type == "Synced")'; then
         break
     fi
-    sleep 1
+    sleep 10
 done
 
 maas admin maas set-config name=commissioning_distro_series value=focal
