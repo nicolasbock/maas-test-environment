@@ -74,7 +74,8 @@ create_network() {
     --expression "s:DHCP:false:" \
     --expression "s:ADDRESS:10.${net_subnet}.0.2/24:" \
     network-config > ${tempdir}/new-interface.yaml
-  yq merge --inplace \
+  yq eval-all --inplace \
+    'select(fileIndex == 0) * select(fileIndex == 1)' \
     ${ci_tempdir}/network-config \
     ${tempdir}/new-interface.yaml
   slot_offset=$((slot_offset + 1))
@@ -142,7 +143,7 @@ declare -A networks=(
 
 declare -a network_options
 slot_offset=3
-touch ${ci_tempdir}/network-config
+cat > ${ci_tempdir}/network-config <<<ethernets:
 for network in ${!networks[@]}; do
   create_network ${network} ${networks[${network}]}
 done
@@ -151,7 +152,8 @@ sed --expression "s:DEVICE:ens${slot_offset}:" \
   --expression "s:DHCP:true:" \
   --expression "/^.*addresses.*/d" \
   network-config > ${tempdir}/new-interface.yaml
-yq merge --inplace \
+yq eval-all --inplace \
+  'select(fileIndex == 0) * select(fileIndex == 1)' \
   ${ci_tempdir}/network-config \
   ${tempdir}/new-interface.yaml
 cat ${ci_tempdir}/network-config
@@ -214,6 +216,7 @@ virt-install --name maas-server \
 if [[ $console == 1 ]]; then
   virsh console maas-server
 fi
+
 while true; do
   MAAS_IP=$(virsh domifaddr maas-server | grep ipv4 | awk '{print $4}' | cut -d / -f 1)
   if [[ -z ${MAAS_IP} ]]; then
