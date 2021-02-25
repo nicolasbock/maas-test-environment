@@ -2,6 +2,21 @@
 
 set -u -e -x
 
+: ${sync:=0}
+
+while (( $# > 0 )); do
+    case $1 in
+        --sync)
+            shift
+            sync=$1
+            ;;
+        *)
+            echo "unknown option $1"
+            ;;
+    esac
+    shift
+done
+
 PS4='+(${BASH_SOURCE##*/}:${LINENO}) ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 
 # Delete default libvirt network
@@ -139,27 +154,40 @@ maas admin maas set-config name=curtin_verbose value=true
 maas admin maas set-config name=ntp_server value=ntp.ubuntu.com
 
 # Sync distros
+maas admin boot-source-selections create 1 os="ubuntu" release="xenial" \
+    arches="amd64" subarches="*" labels="*" || :
+maas admin boot-source-selections create 1 os="ubuntu" release="bionic" \
+    arches="amd64" subarches="*" labels="*" || :
 maas admin boot-source-selections create 1 os="ubuntu" release="focal" \
     arches="amd64" subarches="*" labels="*" || :
 
-maas admin boot-resources read
+maas admin boot-sources read
 
-while true; do
-    if maas admin boot-resources read | jq -e '.[] | select(.name == "ubuntu/bionic" and .type == "Synced")'; then
-        break
-    fi
-    sleep 10
-done
+if (( sync == 1 )); then
+    while true; do
+        if maas admin boot-resources read | jq -e '.[] | select(.name == "ubuntu/xenial" and .type == "Synced")'; then
+            break
+        fi
+        sleep 10
+    done
 
-while true; do
-    if maas admin boot-resources read | jq -e '.[] | select(.name == "ubuntu/focal" and .type == "Synced")'; then
-        break
-    fi
-    sleep 10
-done
+    while true; do
+        if maas admin boot-resources read | jq -e '.[] | select(.name == "ubuntu/bionic" and .type == "Synced")'; then
+            break
+        fi
+        sleep 10
+    done
 
-maas admin maas set-config name=commissioning_distro_series value=focal
-maas admin maas set-config name=default_distro_series value=focal
+    while true; do
+        if maas admin boot-resources read | jq -e '.[] | select(.name == "ubuntu/focal" and .type == "Synced")'; then
+            break
+        fi
+        sleep 10
+    done
+
+    maas admin maas set-config name=commissioning_distro_series value=focal
+    maas admin maas set-config name=default_distro_series value=focal
+fi
 
 # Setup networking
 maas admin spaces create name=oam
