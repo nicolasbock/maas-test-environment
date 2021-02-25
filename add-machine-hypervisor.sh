@@ -116,7 +116,7 @@ done
 if virsh dominfo ${vm_id}; then
     if (( force == 1 )); then
         virsh destroy ${vm_id} || true
-        virsh undefine ${vm_id} || true
+        virsh undefine --remove-all-storage ${vm_id} || true
     else
         echo "VM with name ${vm_id} already exists"
         exit 1
