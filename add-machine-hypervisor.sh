@@ -11,6 +11,7 @@ declare -a networks=(
 )
 declare -a tags=()
 first_disk=0
+force=0
 
 while (( $# > 0 )); do
     case $1 in
@@ -20,16 +21,16 @@ Usage:
 
 -h | --help     This help
      --debug    Print debugging information
+-f | --force    Force VM creation even if a VM with that name
+                already exists.
 -n | --name     The name of the machine (libvirt ID)
--m | --memory   The memory size in MiB
+-m | --memory   The memory size in MiB (default = ${memory} MiB)
 -d | --disk     The disk size in GiB. If used repeatedly more disks
-                are added with this size.
+                are added with this size. (default = ${disks[@]} GiB)
 -t | --tag      Add a tag to the machine. This option can be used
                 multiple times and is additive.
 -i | --network  A network name to connect to. This option can be used
-                multiple times and is additive.
-
-                ${networks[@]}
+                multiple times and is additive. (default = ${networks[@]})
 EOF
             exit
             ;;
@@ -108,6 +109,16 @@ done
 for (( i = 0; i < ${#disks[@]}; i++ )); do
     disks[${i}]="--disk size=${disks[${i}]}"
 done
+
+if virsh dominfo ${vm_id}; then
+    if (( force == 1 )); then
+        virsh destroy ${vm_id} || true
+        virsh undefine ${vm_id} || true
+    else
+        echo "VM with name ${vm_id} already exists"
+        exit 1
+    fi
+fi
 
 virt-install \
     --name ${vm_id} \
