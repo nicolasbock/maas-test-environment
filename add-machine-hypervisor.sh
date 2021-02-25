@@ -37,6 +37,9 @@ EOF
         --debug)
             debug=1
             ;;
+        -f|--force)
+            force=1
+            ;;
         -n|--name)
             shift
             if (( $# <= 0 )); then
