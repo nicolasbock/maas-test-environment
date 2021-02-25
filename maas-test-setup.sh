@@ -222,7 +222,7 @@ declare -A spaces=(
 )
 
 for space in ${!spaces[@]}; do
-    abc=10.${spaces[$space]}.0
+    abc=10.0.${spaces[$space]}
     gw=${abc}.2
     dns=10.0.0.2  # <- MUST BE SET TO MAAS HOST IP
     cidr=${abc}.0/${cidrs[$space]}
@@ -231,7 +231,7 @@ for space in ${!spaces[@]}; do
     maas admin subnet update $subnet_id gateway_ip=$gw
     maas admin subnet update $subnet_id dns_servers=$dns
 
-    if [ "$space" = "external" ]; then
+    if [[ space == external ]]; then
         maas admin ipranges create type=reserved subnet="$subnet_id" \
             comment="Floating IPs" \
             start_ip=${abc}.200 end_ip=${abc}.254
