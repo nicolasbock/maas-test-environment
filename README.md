@@ -36,3 +36,12 @@ and run:
 
     $ ssh ubuntu@MAAS_IP
     $ ./juju/gencloud.sh
+
+## Adding machines for juju models
+
+Adding machines can be done in much the same way as adding the juju
+controller VM in the example above. The following command will create
+a machine with 8 GiB of memory, 3 disks, and 2 NICs (`maas-oam-net`
+and `maas-public-net`):
+
+    $ ./add-machine-hypervisor.sh --name infra-1 --memory $((8 * 1024)) --disk 10 --disk 2 --disk 2 --network maas-public-net
