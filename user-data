@@ -44,7 +44,7 @@ write_files:
   permissions: 0644
 
 runcmd:
-  - [maas-test-setup.sh]
+  - [maas-test-setup.sh, --sync, SYNC]
 
 final_message: The MAAS server is ready
 

@@ -12,6 +12,7 @@ JUJU_CHANNEL=2.8/stable
 debug=0
 refresh=0
 console=0
+sync=0
 
 upload_volume() {
     local size
@@ -95,6 +96,7 @@ Usage:
 -r | --refresh  Refresh cloud images
 -d | --debug    Print debugging information
 -c | --console  Attach to VM console after creating it
+-s | --sync     Sync MAAS images (default is not to)
 EOF
             exit 0
             ;;
@@ -110,6 +112,9 @@ EOF
             ;;
         --console|-c)
             console=1
+            ;;
+        --sync|-s)
+            sync=1
             ;;
         *)
             echo "unknown command line argument $1"
@@ -196,6 +201,7 @@ sed \
     --expression "s:SETUP_SCRIPT:$(base64 --wrap 0 ${tempdir}/maas-test-setup.sh):" \
     --expression "s:ADD_MACHINE_SCRIPT:$(base64 --wrap 0 ${tempdir}/add-machine.sh):" \
     --expression "s:VIMRC:$(base64 --wrap 0 ${tempdir}/.vimrc):" \
+    --expression "s:SYNC:${sync}:" \
     user-data > ${ci_tempdir}/user-data
 
 echo "Creating config drive"
