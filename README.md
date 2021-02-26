@@ -18,7 +18,9 @@ The script will destroy an existing `maas-server` VM and rebuild it.
 
 Running the script
 
-    $ ./add-machine-hypervisor.sh
+```shell
+$ ./add-machine-hypervisor.sh
+```
 
 on the hypervisor will create a new VM and add it to MAAS running on
 VM `maas-server`. That VM can then be commissioned via MAAS. The
@@ -29,13 +31,17 @@ be manager via MAAS.
 
 Create a VM for the Juju controller:
 
-    $ ./add-machine-hypervisor.sh --name juju-controller
+```shell
+$ ./add-machine-hypervisor.sh --name juju-controller
+```
 
 And wait for it to be READY in MAAS. Then log into the `maas-server`
 and run:
 
-    $ ssh ubuntu@MAAS_IP
-    $ ./juju/gencloud.sh
+```shell
+$ ssh ubuntu@MAAS_IP
+$ ./juju/gencloud.sh
+```
 
 ## Adding machines for juju models
 
@@ -44,4 +50,10 @@ controller VM in the example above. The following command will create
 a machine with 8 GiB of memory, 3 disks, and 2 NICs (`maas-oam-net`
 and `maas-public-net`):
 
-    $ ./add-machine-hypervisor.sh --name infra-1 --memory $((8 * 1024)) --disk 10 --disk 2 --disk 2 --network maas-public-net
+```shell
+$ ./add-machine-hypervisor.sh \
+    --name infra-1 \
+    --memory $((8 * 1024)) \
+    --disk 10 --disk 2 --disk 2 \
+    --network maas-public-net
+```
