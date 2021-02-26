@@ -6,11 +6,14 @@ environment.
 The script `create.sh` will create a libvirt VM running MAAS. Optional
 arguments for the script are:
 
-    -h | --help     This help
-    -s | --series   The Ubuntu series (default: ${SERIES})
-    -r | --refresh  Refresh cloud images
-    -d | --debug    Print debugging information
-    -c | --console  Attach to VM console after creating it
+```
+-h | --help     This help
+-s | --series   The Ubuntu series (default: ${SERIES})
+-r | --refresh  Refresh cloud images
+-d | --debug    Print debugging information
+-c | --console  Attach to VM console after creating it
+-s | --sync     Sync MAAS images (default is not to)
+```
 
 The script will destroy an existing `maas-server` VM and rebuild it.
 
