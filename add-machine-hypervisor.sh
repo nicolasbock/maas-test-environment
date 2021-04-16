@@ -110,7 +110,7 @@ for (( i = 0; i < ${#networks[@]}; i++ )); do
 done
 
 for (( i = 0; i < ${#disks[@]}; i++ )); do
-    disks[${i}]="--disk size=${disks[${i}]}"
+    disks[${i}]="--disk size=${disks[${i}]},bus=virtio"
 done
 
 if virsh dominfo ${vm_id}; then
