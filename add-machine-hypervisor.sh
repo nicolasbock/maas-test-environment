@@ -5,6 +5,7 @@ set -u -e
 debug=0
 
 memory=2048
+bus=sata
 declare -a disks=(8)
 declare -a networks=(
     maas-oam-net
@@ -110,7 +111,7 @@ for (( i = 0; i < ${#networks[@]}; i++ )); do
 done
 
 for (( i = 0; i < ${#disks[@]}; i++ )); do
-    disks[${i}]="--disk size=${disks[${i}]},bus=virtio"
+    disks[${i}]="--disk size=${disks[${i}]},bus=${bus}"
 done
 
 if virsh dominfo ${vm_id}; then
