@@ -87,15 +87,34 @@ EOF
 chown -R ubuntu: ~ubuntu/.ssh/config
 
 snap refresh
-snap install --channel MAAS_CHANNEL maas-test-db
+
+if [[ "MAAS_CHANNEL" == 2.7 ]]; then
+    sudo apt install --yes --no-install-recommends postgresql
+else
+    snap install --channel MAAS_CHANNEL maas-test-db
+fi
 snap install --channel MAAS_CHANNEL maas
 snap install --channel JUJU_CHANNEL --classic juju
 snap install --classic openstackclients
 
 # Create admin creds and login
-maas init region+rack \
-    --maas-url http://localhost:5240/MAAS \
-    --database-uri maas-test-db:///
+if [[ "MAAS_CHANNEL" == 2.7 ]]; then
+    sudo -u postgres psql -c "create user \"maas\" with encrypted password 'ubuntu'"
+    sudo -u postgres createdb -O "maas" "maas"
+    cat <<EOF | sudo -u postgres tee --append /etc/postgresql/*/main/pg_hba.conf
+host    maas            maas            0/0                     md5
+EOF
+    maas init --mode region+rack \
+        --maas-url http://localhost:5240/MAAS \
+        --database-host localhost \
+        --database-pass ubuntu \
+        --database-user maas \
+        --database-name maas
+else
+    maas init region+rack \
+        --maas-url http://localhost:5240/MAAS \
+        --database-uri maas-test-db:///
+fi
 maas createadmin \
     --username ubuntu \
     --password ubuntu \

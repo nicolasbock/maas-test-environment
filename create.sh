@@ -5,8 +5,8 @@ set -u -e
 SERIES=focal
 VM_NAME=maas
 PROFILE=maas-profile.yaml
-MAAS_CHANNEL=3.0/stable
-JUJU_CHANNEL=2.9/stable
+MAAS_CHANNEL=2.7
+JUJU_CHANNEL=2.9
 : ${LP_KEYNAME:=undefined}
 
 debug=0
