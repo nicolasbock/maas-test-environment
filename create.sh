@@ -216,7 +216,7 @@ qemu-img resize ${tempdir}/maas-server.qcow2 40G
 upload_volume ${tempdir}/maas-server.qcow2
 
 virt-install --name maas-server \
-    --memory 4096 \
+    --memory $(( 6 * 1024 )) \
     --cpu host-passthrough,cache.mode=passthrough \
     --vcpus maxvcpus=2 \
     --disk vol=default/maas-server.qcow2,bus=virtio,sparse=true \
