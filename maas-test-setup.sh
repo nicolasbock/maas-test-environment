@@ -64,7 +64,7 @@ declare -a model_defaults=(
 for d in ${model_defaults[@]}; do
     model_config+=( "--config $d" )
 done
-juju bootstrap mymaas --no-gui --constraints "tags=bootstrap" \
+juju bootstrap mymaas --no-gui --constraints "tags=juju" \
     --constraints "mem=2G" ${model_config[@]} os_controller --debug
 juju model-defaults ${model_defaults[@]}
 EOF
@@ -88,38 +88,43 @@ chown -R ubuntu: ~ubuntu/.ssh/config
 
 snap refresh
 
-if [[ "MAAS_CHANNEL" == 2.7 ]]; then
-    sudo apt install --yes --no-install-recommends postgresql
-else
-    snap install --channel MAAS_CHANNEL maas-test-db
-fi
 snap install --channel MAAS_CHANNEL maas
 snap install --channel JUJU_CHANNEL --classic juju
 snap install --classic openstackclients
 
-# Create admin creds and login
-if [[ "MAAS_CHANNEL" == 2.7 ]]; then
+if [[ "MAAS_CHANNEL" == 2.7 || "POSTGRESQL" == yes || "POSTGRESQL" == true ]]; then
+    sudo apt install --yes --no-install-recommends postgresql
+
+    # Create admin creds and login
     sudo -u postgres psql -c "create user \"maas\" with encrypted password 'ubuntu'"
     sudo -u postgres createdb -O "maas" "maas"
     cat <<EOF | sudo -u postgres tee --append /etc/postgresql/*/main/pg_hba.conf
 host    maas            maas            0/0                     md5
 EOF
-    maas init --mode region+rack \
-        --maas-url http://localhost:5240/MAAS \
-        --database-host localhost \
-        --database-pass ubuntu \
-        --database-user maas \
-        --database-name maas
+    if [[ "MAAS_CHANNEL" == 2.7 ]]; then
+        maas init --mode region+rack \
+            --maas-url http://localhost:5240/MAAS \
+            --database-host localhost \
+            --database-pass ubuntu \
+            --database-user maas \
+            --database-name maas
+    else
+        maas init region+rack \
+            --maas-url http://localhost:5240/MAAS \
+            --database-uri postgres://maas:ubuntu@localhost/maas
+    fi
 else
+    snap install --channel MAAS_CHANNEL maas-test-db
     maas init region+rack \
         --maas-url http://localhost:5240/MAAS \
         --database-uri maas-test-db:///
 fi
+
 maas createadmin \
     --username ubuntu \
     --password ubuntu \
     --email maastest@ubuntu.com \
-    $([[ ${LP_KEYNAME} != undefined ]] && echo "--ssh-import lp:LP_KEYNAME")
+    $([[ "LP_KEYNAME" != undefined ]] && echo "--ssh-import lp:LP_KEYNAME")
 
 maas apikey --username ubuntu > /root/ubuntu-api-key
 apikey=`maas apikey --username ubuntu`
@@ -171,6 +176,7 @@ maas admin maas set-config name=dnssec_validation value=no
 maas admin maas set-config name=maas_name value=maaslab
 maas admin maas set-config name=curtin_verbose value=true
 maas admin maas set-config name=ntp_server value=ntp.ubuntu.com
+maas admin maas set-config name=remote_syslog value=localhost
 
 # Sync distros
 maas admin boot-source-selections create 1 os="ubuntu" release="xenial" \
