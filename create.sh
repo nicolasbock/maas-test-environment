@@ -8,6 +8,7 @@ PROFILE=maas-profile.yaml
 : ${LP_KEYNAME:=undefined}
 : ${MAAS_CHANNEL:=2.7}
 : ${JUJU_CHANNEL:=2.9}
+: ${POSTGRESQL:=yes}
 
 debug=0
 refresh=0
@@ -179,13 +180,14 @@ if ! grep --quiet "$(cat ~/.ssh/id_rsa_maas-test.pub)" ~/.ssh/authorized_keys; t
 fi
 
 sed \
-    --expression "s:LP_KEYNAME:${LP_KEYNAME}:" \
-    --expression "s:MAAS_CHANNEL:${MAAS_CHANNEL}:" \
-    --expression "s:JUJU_CHANNEL:${JUJU_CHANNEL}:" \
-    --expression "s:VIRSH_USER:${USER}:" \
+    --expression "s:LP_KEYNAME:${LP_KEYNAME}:g" \
+    --expression "s:POSTGRESQL:${POSTGRESQL}:g" \
+    --expression "s:MAAS_CHANNEL:${MAAS_CHANNEL}:g" \
+    --expression "s:JUJU_CHANNEL:${JUJU_CHANNEL}:g" \
+    --expression "s:VIRSH_USER:${USER}:g" \
     maas-test-setup.sh > ${tempdir}/maas-test-setup.sh
 sed \
-    --expression "s:VIRSH_USER:${USER}:" \
+    --expression "s:VIRSH_USER:${USER}:g" \
     add-machine.sh > ${tempdir}/add-machine.sh
 sed \
     --expression "s:SSH_PUBLIC_KEY:$(cat ~/.ssh/id_rsa.pub):" \
