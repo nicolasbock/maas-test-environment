@@ -134,7 +134,8 @@ virt-install \
     --noautoconsole
 
 ip=10.0.0.2
-mac=$(xmllint --xpath "//source[@network='maas-oam-net']/../mac/@address" <(virsh dumpxml ${vm_id}) \
+mac=$(xmllint --xpath "//source[@network='maas-oam-net']/../mac/@address" \
+    <(virsh dumpxml ${vm_id}) \
     | awk -F= '{print $2}' | tr --delete '"')
 
 ssh root@${ip} -- 'maas login admin http://localhost:5240/MAAS $(cat ubuntu-api-key)'
