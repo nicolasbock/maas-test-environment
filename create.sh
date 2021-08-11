@@ -46,6 +46,25 @@ upload_volume() {
 }
 
 refresh_cloud_image() {
+    echo "Refreshing image mirror"
+    local KEYRING_FILE=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg
+    local IMAGE_SRC=https://images.maas.io/ephemeral-v3/stable
+    local IMAGE_DIR=/var/www/html/maas/images/ephemeral-v3/stable
+
+    sudo sstream-mirror \
+        --keyring=$KEYRING_FILE \
+        $IMAGE_SRC \
+        $IMAGE_DIR \
+        'arch=amd64' \
+        'release~(xenial|bionic|focal)' \
+        --max=1 --progress
+    sudo sstream-mirror \
+        --keyring=$KEYRING_FILE \
+        $IMAGE_SRC \
+        $IMAGE_DIR \
+        'os~(grub*|pxelinux)' \
+        --max=1 --progress
+
     echo "Refreshing cloud images"
     for series in bionic focal; do
         image=${series}-server-cloudimg-amd64.img

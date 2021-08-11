@@ -173,11 +173,16 @@ maas admin maas set-config name=curtin_verbose value=true
 maas admin maas set-config name=ntp_server value=ntp.ubuntu.com
 
 # Sync distros
-maas admin boot-source-selections create 1 os="ubuntu" release="xenial" \
+maas admin boot-sources create \
+    url=http://10.0.0.1:8000/maas/images/ephemeral-v3/stable \
+    keyring_filename=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg
+maas admin boot-source delete 1
+
+maas admin boot-source-selections create 2 os="ubuntu" release="xenial" \
     arches="amd64" subarches="*" labels="*" || :
-maas admin boot-source-selections create 1 os="ubuntu" release="bionic" \
+maas admin boot-source-selections create 2 os="ubuntu" release="bionic" \
     arches="amd64" subarches="*" labels="*" || :
-maas admin boot-source-selections create 1 os="ubuntu" release="focal" \
+maas admin boot-source-selections create 2 os="ubuntu" release="focal" \
     arches="amd64" subarches="*" labels="*" || :
 
 maas admin boot-sources read
