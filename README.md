@@ -13,6 +13,7 @@ arguments for the script are:
 -d | --debug    Print debugging information
 -c | --console  Attach to VM console after creating it
 -s | --sync     Sync MAAS images (default is not to)
+--maas-deb      Install MAAS from deb (not snap)
 ```
 
 The script will destroy an existing `maas-server` VM and rebuild it.
