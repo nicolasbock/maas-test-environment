@@ -14,6 +14,7 @@ debug=0
 refresh=0
 console=0
 sync=0
+maas_deb=0
 
 MANAGEMENT_NET=0
 declare -A networks=(
@@ -133,6 +134,7 @@ Usage:
 -d | --debug    Print debugging information
 -c | --console  Attach to VM console after creating it
 -s | --sync     Sync MAAS images (default is not to)
+--maas-deb      Install MAAS from deb (not snap)
 EOF
             exit 0
             ;;
@@ -151,6 +153,9 @@ EOF
             ;;
         --sync|-s)
             sync=1
+            ;;
+        --maas-deb)
+            maas_deb=1
             ;;
         *)
             echo "unknown command line argument $1"
@@ -204,6 +209,7 @@ sed \
     --expression "s:MAAS_CHANNEL:${MAAS_CHANNEL}:g" \
     --expression "s:JUJU_CHANNEL:${JUJU_CHANNEL}:g" \
     --expression "s:VIRSH_USER:${USER}:g" \
+    --expression "s:MAAS_FROM_DEB:$(((maas_deb == 1)) && echo "yes"):" \
     maas-test-setup.sh > ${tempdir}/maas-test-setup.sh
 sed \
     --expression "s:VIRSH_USER:${USER}:g" \

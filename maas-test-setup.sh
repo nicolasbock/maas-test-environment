@@ -86,40 +86,45 @@ Host 10.*.*.*
 EOF
 chown -R ubuntu: ~ubuntu/.ssh/config
 
-snap refresh
-
-snap install --channel MAAS_CHANNEL maas
 snap install --channel JUJU_CHANNEL --classic juju
-snap install --classic openstackclients
+snap install openstackclients
 
+declare maas_db_password
 if [[ "MAAS_CHANNEL" == 2.7 || "POSTGRESQL" == yes || "POSTGRESQL" == true ]]; then
-    sudo apt install --yes --no-install-recommends postgresql
+    sudo apt-get install --yes --no-install-recommends postgresql
+    maas_db_password=ubuntu
+else
+    snap install --channel MAAS_CHANNEL maas-test-db
+fi
 
-    # Create admin creds and login
-    sudo -u postgres psql -c "create user \"maas\" with encrypted password 'ubuntu'"
-    sudo -u postgres createdb -O "maas" "maas"
-    cat <<EOF | sudo -u postgres tee --append /etc/postgresql/*/main/pg_hba.conf
-host    maas            maas            0/0                     md5
+if [[ "MAAS_FROM_DEB" == yes ]]; then
+    sudo apt-add-repository --yes ppa:maas/MAAS_CHANNEL
+    sudo apt-get install --yes --no-install-recommends maas
+    maas_db_password=$(sudo grep dbc_dbpass= /etc/dbconfig-common/maas-region-controller.conf | sed -e "s:^.*'\([^']*\)':\1:")
+else
+    snap install --channel MAAS_CHANNEL maas
+fi
+
+# Create admin creds and login
+if [[ "MAAS_CHANNEL" == 2.7 || "POSTGRESQL" == yes ]]; then
+    if [[ "MAAS_FROM_DEB" != yes ]]; then
+        sudo -u postgres psql -c "create user \"maas\" with encrypted password 'ubuntu'"
+        sudo -u postgres createdb --owner maas maasdb
+        cat <<EOF | sudo -u postgres tee --append /etc/postgresql/*/main/pg_hba.conf
+host    maasdb          maas            0/0                     md5
 EOF
-    if [[ "MAAS_CHANNEL" == 2.7 ]]; then
         maas init --mode region+rack \
             --maas-url http://localhost:5240/MAAS \
             --database-host localhost \
-            --database-pass ubuntu \
+            --database-pass ${maas_db_password} \
             --database-user maas \
-            --database-name maas
-    else
-        maas init region+rack \
-            --maas-url http://localhost:5240/MAAS \
-            --database-uri postgres://maas:ubuntu@localhost/maas
+            --database-name maasdb
     fi
 else
-    snap install --channel MAAS_CHANNEL maas-test-db
     maas init region+rack \
         --maas-url http://localhost:5240/MAAS \
         --database-uri maas-test-db:///
 fi
-
 maas createadmin \
     --username ubuntu \
     --password ubuntu \
@@ -305,8 +310,18 @@ maas admin domain update 0 name=mylab.home
 # skip intro
 maas admin maas set-config name=completed_intro value=true
 
-mkdir -m 0700 -p /var/snap/maas/current/root/.ssh
-cp --verbose /root/.ssh/id_rsa{,.pub} /var/snap/maas/current/root/.ssh
+declare ssh_root_dir
+if [[ "MAAS_FROM_DEB" != yes ]]; then
+    ssh_root_dir=/var/snap/maas/current/root/.ssh
+else
+    ssh_root_dir=/var/lib/maas/.ssh
+fi
+mkdir -m 0700 -p ${ssh_root_dir}
+cp --verbose /root/.ssh/id_rsa{,.pub} ${ssh_root_dir}
+
+if [[ "MAAS_FROM_DEB" == yes ]]; then
+    chown --recursive maas: ${ssh_root_dir}
+fi
 
 # Add KVM host
 # VIRSH_IP=$(ip route show default | awk '{print $3}')
