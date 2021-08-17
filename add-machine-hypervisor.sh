@@ -6,6 +6,7 @@ debug=0
 
 memory=2048
 bus=sata
+vcpus=1
 declare -a disks=(8)
 declare -a networks=(
     maas-oam-net
@@ -25,6 +26,7 @@ Usage:
 -f | --force    Force VM creation even if a VM with that name
                 already exists.
 -n | --name     The name of the machine (libvirt ID)
+-v | --vcpus    The number of vCPUs (default = ${vcpus})
 -m | --memory   The memory size in MiB (default = ${memory} MiB)
 -d | --disk     The disk size in GiB. If used repeatedly more disks
                 are added with this size. (default = ${disks[@]} GiB)
@@ -48,6 +50,14 @@ EOF
                 exit 1
             fi
             vm_id=$1
+            ;;
+        -v|--vcpus)
+            shift
+            if (( $# <= 0 )); then
+                echo "missing number"
+                exit 1
+            fi
+            vcpus=$(( $1 ))
             ;;
         -m|--memory)
             shift
@@ -127,6 +137,8 @@ fi
 virt-install \
     --name ${vm_id} \
     --memory ${memory} \
+    --cpu host-passthrough,cache.mode=passthrough \
+    --vcpus ${vcpus} \
     ${disks[@]} \
     ${networks[@]} \
     --boot network \
