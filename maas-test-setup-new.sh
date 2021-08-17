@@ -13,9 +13,12 @@ snap set system proxy.https=${PROXY}
 
 # Fix colors in shell
 sed --in-place --expression 's,^#force,force,' ~ubuntu/.bashrc
+sed --in-place --expression 's,^#force,force,' /root/.bashrc
+
 cat <<EOF >> ~ubuntu/.dircolors
 DIR 38;5;75 # directory
 EOF
+cp ~ubuntu/.dircolors /root
 
 while ! ping -c 1 ${PROXY_ADDRESS}; do
     sleep 1
