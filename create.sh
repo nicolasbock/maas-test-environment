@@ -7,16 +7,16 @@ NETWORK_NAME_PREFIX=maas
 VM_NAME=maas-server
 VCPUS=2
 PROFILE=maas-profile.yaml
-: ${LP_KEYNAME:=undefined}
-: ${MAAS_CHANNEL:=2.7}
-: ${JUJU_CHANNEL:=2.7}
-: ${POSTGRESQL:=yes}
 
 debug=0
 refresh=0
 console=0
 sync=0
 maas_deb=0
+maas_channel=2.7
+juju_channel=2.9
+lp_keyname=undefined
+postgresql=1
 
 MANAGEMENT_NET=0
 declare -A networks=(
@@ -136,19 +136,17 @@ while (( $# > 0 )); do
             cat <<EOF
 Usage:
 
--h | --help             This help
--s | --series           The Ubuntu series (default: ${SERIES})
--m | --maas-channel     The MAAS version (default: ${MAAS_CHANNEL}). Note, <= 2.8 requires Bionic
--j | --juju-channel     The Juju version (default: ${JUJU_CHANNEL})
--r | --refresh          Refresh cloud images
--d | --debug            Print debugging information
--c | --console          Attach to VM console after creating it
--s | --sync             Sync MAAS images (default is not to)
---maas-deb              Install MAAS from deb (not snap)
-
-Environment Variables:
-
-LP_KEYNAME              The launchpad key to import
+-h | --help          This help
+-s | --series        The Ubuntu series (default: ${SERIES})
+-r | --refresh       Refresh cloud images
+-d | --debug         Print debugging information
+-c | --console       Attach to VM console after creating it
+-s | --sync          Sync MAAS images (default is not to)
+-m | --maas-channel  The MAAS channel (default: ${maas_channel})
+-j | --juju-channel  The juju channel (default: ${juju_channel})
+-k | --lp-keyname    The launchpad key name to import (default: ${lp_keyname})
+-p | --postgresql    Use postgresql package instead of maas-test-db (default: ${postgresql})
+--maas-deb           Install MAAS from deb (not snap)
 EOF
             exit 0
             ;;
@@ -178,6 +176,24 @@ EOF
             ;;
         --maas-deb)
             maas_deb=1
+            ;;
+        --maas-channel|-m)
+            shift
+            maas_channel=$1
+            ;;
+        --juju-channel|-j)
+            shift
+            juju_channel=$1
+            ;;
+        --lp-keyname|-k)
+            shift
+            lp_keyname=$1
+            ;;
+        --postgresql)
+            postgresql=1
+            ;;
+        --no-postgresql)
+            postgresql=0
             ;;
         *)
             echo "unknown command line argument $1"
@@ -242,10 +258,10 @@ if ! grep --quiet "$(cat ~/.ssh/id_rsa_maas-test.pub)" ~/.ssh/authorized_keys; t
 fi
 
 sed \
-    --expression "s:LP_KEYNAME:${LP_KEYNAME}:g" \
-    --expression "s:POSTGRESQL:${POSTGRESQL}:g" \
-    --expression "s:MAAS_CHANNEL:${MAAS_CHANNEL}:g" \
-    --expression "s:JUJU_CHANNEL:${JUJU_CHANNEL}:g" \
+    --expression "s:LP_KEYNAME:${lp_keyname}:g" \
+    --expression "s:POSTGRESQL:$(((postgresql == 1)) && echo "yes"):g" \
+    --expression "s:MAAS_CHANNEL:${maas_channel}:g" \
+    --expression "s:JUJU_CHANNEL:${juju_channel}:g" \
     --expression "s:VIRSH_USER:${USER}:g" \
     --expression "s:MAAS_FROM_DEB:$( ((maas_deb == 1)) && echo "yes"):" \
     --expression "s:FABRIC_NAMES:${!networks[*]}:" \
