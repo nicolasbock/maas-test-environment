@@ -19,6 +19,8 @@ done
 
 PS4='+(${BASH_SOURCE##*/}:${LINENO}) ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 
+export DEBIAN_FRONTEND=noninteractive
+
 # Delete default libvirt network
 virsh net-destroy default 2>/dev/null || true
 virsh net-undefine default 2>/dev/null || true
@@ -97,16 +99,16 @@ snap install openstackclients
 
 declare maas_db_password
 if [[ "MAAS_CHANNEL" == 2.7 || "POSTGRESQL" == yes || "POSTGRESQL" == true ]]; then
-    sudo apt-get install --yes --no-install-recommends postgresql
+    apt-get install --yes --no-install-recommends postgresql
     maas_db_password=ubuntu
 else
     snap install --channel MAAS_CHANNEL maas-test-db
 fi
 
 if [[ "MAAS_FROM_DEB" == yes ]]; then
-    sudo apt-add-repository --yes ppa:maas/MAAS_CHANNEL
-    sudo apt-get install --yes --no-install-recommends maas
     maas_db_password=$(sudo grep dbc_dbpass= /etc/dbconfig-common/maas-region-controller.conf | sed -e "s:^.*'\([^']*\)':\1:")
+    apt-add-repository --yes ppa:maas/MAAS_CHANNEL
+    apt-get install --yes --no-install-recommends maas
 else
     snap install --channel MAAS_CHANNEL maas
 fi
