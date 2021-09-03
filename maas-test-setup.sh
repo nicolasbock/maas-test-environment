@@ -109,6 +109,10 @@ if [[ "MAAS_FROM_DEB" == yes ]]; then
     maas_db_password=$(sudo grep dbc_dbpass= /etc/dbconfig-common/maas-region-controller.conf | sed -e "s:^.*'\([^']*\)':\1:")
     apt-add-repository --yes ppa:maas/MAAS_CHANNEL
     apt-get install --yes --no-install-recommends maas
+    if [[ -z ${maas_db_password} ]]; then
+        echo "Could not get password"
+        exit 1
+    fi
 else
     snap install --channel MAAS_CHANNEL maas
 fi
