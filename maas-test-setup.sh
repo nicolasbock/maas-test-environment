@@ -114,25 +114,29 @@ else
 fi
 
 # Create admin creds and login
-if [[ "MAAS_CHANNEL" == 2.7 || "POSTGRESQL" == yes ]]; then
-    if [[ "MAAS_FROM_DEB" != yes ]]; then
-        sudo -u postgres psql -c "create user \"maas\" with encrypted password 'ubuntu'"
-        sudo -u postgres createdb --owner maas maasdb
-        cat <<EOF | sudo -u postgres tee --append /etc/postgresql/*/main/pg_hba.conf
+if [[ "POSTGRESQL" == yes && "MAAS_FROM_DEB" != yes ]]; then
+    sudo -u postgres psql -c "create user \"maas\" with encrypted password 'ubuntu'" || echo "ignoring failure"
+    sudo -u postgres createdb --owner maas maasdb || echo "ignoring failure"
+    cat <<EOF | sudo -u postgres tee --append /etc/postgresql/*/main/pg_hba.conf
 host    maasdb          maas            0/0                     md5
 EOF
-        maas init --mode region+rack \
-            --maas-url http://localhost:5240/MAAS \
-            --database-host localhost \
-            --database-pass ${maas_db_password} \
-            --database-user maas \
-            --database-name maasdb
-    fi
+fi
+
+maas init --help
+
+if [[ "MAAS_CHANNEL" == 2.7 && "MAAS_FROM_DEB" != yes ]]; then
+    maas init --mode region+rack \
+        --maas-url http://localhost:5240/MAAS \
+        --database-host localhost \
+        --database-pass ${maas_db_password} \
+        --database-user maas \
+        --database-name maasdb
 else
     maas init region+rack \
         --maas-url http://localhost:5240/MAAS \
-        --database-uri maas-test-db:///
+        --database-uri maas-test-db:/// || echo "Ignoring"
 fi
+
 maas createadmin \
     --username ubuntu \
     --password ubuntu \
