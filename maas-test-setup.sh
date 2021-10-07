@@ -50,6 +50,9 @@ sysctl -p /etc/sysctl.d/80-canonical.conf
 
 # Fix colors in shell
 sed --in-place --expression 's,^#force,force,' ~ubuntu/.bashrc
+cat <<EOF >> ~ubuntu/.dircolors
+DIR 38;5;75 # directory
+EOF
 
 mkdir -p ~ubuntu/juju
 
