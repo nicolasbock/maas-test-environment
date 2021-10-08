@@ -7,7 +7,7 @@ VM_NAME=maas
 PROFILE=maas-profile.yaml
 : ${LP_KEYNAME:=undefined}
 : ${MAAS_CHANNEL:=2.7}
-: ${JUJU_CHANNEL:=2.9}
+: ${JUJU_CHANNEL:=2.7}
 : ${POSTGRESQL:=yes}
 
 debug=0

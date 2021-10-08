@@ -5,7 +5,7 @@ set -u -e
 debug=0
 
 memory=2048
-bus=sata
+bus=default
 declare -a disks=(8)
 declare -a networks=(
     maas-oam-net
@@ -28,6 +28,7 @@ Usage:
 -m | --memory   The memory size in MiB (default = ${memory} MiB)
 -d | --disk     The disk size in GiB. If used repeatedly more disks
                 are added with this size. (default = ${disks[@]} GiB)
+-b | --bus      The bus type {'ide', 'sata', 'scsi', 'usb', 'virtio' or 'xen'}
 -t | --tag      Add a tag to the machine. This option can be used
                 multiple times and is additive.
 -i | --network  A network name to connect to. This option can be used
@@ -70,6 +71,14 @@ EOF
                 disks=( ${disks[@]} $1 )
             fi
             ;;
+        -b|--bus)
+            shift
+            if (( $# <= 0 )); then
+                echo "missing bus type"
+                exit 1
+            fi
+            bus=$1
+            ;;
         -t|--tag)
             shift
             if (( $# <= 0 )); then
@@ -111,7 +120,11 @@ for (( i = 0; i < ${#networks[@]}; i++ )); do
 done
 
 for (( i = 0; i < ${#disks[@]}; i++ )); do
-    disks[${i}]="--disk size=${disks[${i}]},bus=${bus}"
+    if [[ ${bus} = default ]]; then
+        disks[${i}]="--disk size=${disks[${i}]}"
+    else
+        disks[${i}]="--disk size=${disks[${i}]},bus=${bus}"
+    fi
 done
 
 if virsh dominfo ${vm_id}; then
