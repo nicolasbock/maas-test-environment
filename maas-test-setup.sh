@@ -192,6 +192,8 @@ maas admin boot-sources create \
     keyring_filename=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg
 maas admin boot-source delete 1
 
+maas admin boot-source-selections create 2 os="ubuntu" release="trusty" \
+    arches="amd64" subarches="*" labels="*" || :
 maas admin boot-source-selections create 2 os="ubuntu" release="xenial" \
     arches="amd64" subarches="*" labels="*" || :
 maas admin boot-source-selections create 2 os="ubuntu" release="bionic" \
@@ -202,25 +204,13 @@ maas admin boot-source-selections create 2 os="ubuntu" release="focal" \
 maas admin boot-sources read
 
 if (( sync == 1 )); then
-    while true; do
-        if maas admin boot-resources read | jq -e '.[] | select(.name == "ubuntu/xenial" and .type == "Synced")'; then
-            break
-        fi
-        sleep 10
-    done
-
-    while true; do
-        if maas admin boot-resources read | jq -e '.[] | select(.name == "ubuntu/bionic" and .type == "Synced")'; then
-            break
-        fi
-        sleep 10
-    done
-
-    while true; do
-        if maas admin boot-resources read | jq -e '.[] | select(.name == "ubuntu/focal" and .type == "Synced")'; then
-            break
-        fi
-        sleep 10
+    for series in trusty xenial bionic focal; do
+        while true; do
+            if maas admin boot-resources read | jq -e '.[] | select(.name == "ubuntu/${series}" and .type == "Synced")'; then
+                break
+            fi
+            sleep 10
+        done
     done
 
     maas admin maas set-config name=commissioning_distro_series value=focal

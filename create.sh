@@ -58,7 +58,7 @@ refresh_cloud_image() {
         $IMAGE_SRC \
         $IMAGE_DIR \
         'arch=amd64' \
-        'release~(xenial|bionic|focal)' \
+        'release~(trusty|xenial|bionic|focal)' \
         --max=1 --progress
     sudo sstream-mirror \
         --keyring=$KEYRING_FILE \
