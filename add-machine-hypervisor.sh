@@ -116,7 +116,7 @@ fi
 VIRSH_IP=$(xmllint --xpath '*/ip/@address' <(virsh net-dumpxml default) | awk -F = '{print $2}' | tr -d '"')
 
 for (( i = 0; i < ${#networks[@]}; i++ )); do
-    networks[${i}]="--network network=${networks[${i}]}"
+    networks[${i}]="--network network=${networks[${i}]},model=virtio"
 done
 
 for (( i = 0; i < ${#disks[@]}; i++ )); do
