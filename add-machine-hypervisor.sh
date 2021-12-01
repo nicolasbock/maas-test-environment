@@ -13,6 +13,7 @@ declare -a networks=(
 declare -a tags=()
 first_disk=0
 force=0
+uefi=0
 
 while (( $# > 0 )); do
     case $1 in
@@ -33,6 +34,7 @@ Usage:
                 multiple times and is additive.
 -i | --network  A network name to connect to. This option can be used
                 multiple times and is additive. (default = ${networks[@]})
+-u | --uefi     Use UEFI booting.
 EOF
             exit
             ;;
@@ -95,6 +97,9 @@ EOF
             fi
             networks=( ${networks[@]} $1 )
             ;;
+        -u|--uefi)
+            uefi=1
+            ;;
         *)
             echo "unknown command line argument '$1'"
             exit 1
@@ -143,6 +148,7 @@ virt-install \
     ${disks[@]} \
     ${networks[@]} \
     --boot network \
+    $(if (( uefi == 1 )); then echo --boot uefi; fi) \
     --os-variant generic \
     --noautoconsole
 
