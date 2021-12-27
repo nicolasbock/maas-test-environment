@@ -118,7 +118,7 @@ if (( debug == 1 )); then
     PS4='+(${BASH_SOURCE##*/}:${LINENO}) ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 fi
 
-VIRSH_IP=$(xmllint --xpath '*/ip/@address' <(virsh net-dumpxml default) | awk -F = '{print $2}' | tr -d '"')
+read -r VIRSH_IP < <(xmllint --xpath '*/ip/@address' <(virsh net-dumpxml default) | awk -F = '{print $2}' | tr -d '"')
 
 for (( i = 0; i < ${#networks[@]}; i++ )); do
     networks[${i}]="--network network=${networks[${i}]},model=virtio"
@@ -164,7 +164,7 @@ result=$(ssh root@${ip} -- maas admin machines create \
     hostname=${vm_id} \
     power_type=virsh \
     power_parameters_power_id=${vm_id} \
-    power_parameters_power_address=qemu+ssh://${USER}@${VIRSH_IP}/system)
+    power_parameters_power_address=qemu+ssh://${USER}@${VIRSH_IP[0]}/system)
 
 system_id=$(jq '.system_id' <(echo ${result}) | tr -d '"')
 
