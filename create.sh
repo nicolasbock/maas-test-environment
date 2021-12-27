@@ -3,7 +3,7 @@
 set -u -e
 
 SERIES=focal
-VM_NAME=maas
+VM_NAME=maas-server
 PROFILE=maas-profile.yaml
 : ${LP_KEYNAME:=undefined}
 : ${MAAS_CHANNEL:=2.7}
@@ -79,7 +79,7 @@ refresh_cloud_image() {
         fi
 
         new_md5sum=$(md5sum ${image} | awk '{print $1}')
-        old_md5sum=$(sudo md5sum $(virsh vol-path ${image} default) | awk '{print $1}')
+        old_md5sum=$(sudo md5sum "$(virsh vol-path ${image} default)" | awk '{print $1}')
 
         if [[ ${new_md5sum} != ${old_md5sum} ]]; then
             echo "Updating image ${image}"
@@ -177,9 +177,9 @@ if [[ ${refresh} = 1 ]]; then
 fi
 
 echo "Purging existing MAAS server"
-if virsh dominfo maas-server; then
-    virsh destroy maas-server || :
-    virsh undefine maas-server
+if virsh dominfo ${VM_NAME}; then
+    virsh destroy ${VM_NAME} || :
+    virsh undefine ${VM_NAME}
 fi
 
 ci_tempdir=$(TMPDIR=${PWD} mktemp --directory)
@@ -234,28 +234,28 @@ sed \
     user-data > ${ci_tempdir}/user-data
 
 echo "Creating config drive"
-genisoimage -r -V cidata -o maas-server-config-drive.iso ${ci_tempdir}
-upload_volume maas-server-config-drive.iso
+genisoimage -r -V cidata -o ${VM_NAME}-config-drive.iso ${ci_tempdir}
+upload_volume ${VM_NAME}-config-drive.iso
 
 echo "Creating maas disk"
 image=${SERIES}-server-cloudimg-amd64.img
-virsh vol-download --pool default ${image} ${tempdir}/maas-server.qcow2
-qemu-img resize ${tempdir}/maas-server.qcow2 40G
-upload_volume ${tempdir}/maas-server.qcow2
+virsh vol-download --pool default ${image} ${tempdir}/${VM_NAME}.qcow2
+qemu-img resize ${tempdir}/${VM_NAME}.qcow2 40G
+upload_volume ${tempdir}/${VM_NAME}.qcow2
 
-virt-install --name maas-server \
+virt-install --name ${VM_NAME} \
     --memory $(( 6 * 1024 )) \
     --cpu host-passthrough,cache.mode=passthrough \
     --vcpus maxvcpus=2 \
-    --disk vol=default/maas-server.qcow2,bus=virtio,sparse=true \
-    --disk vol=default/maas-server-config-drive.iso,bus=virtio,format=raw \
+    --disk vol=default/${VM_NAME}.qcow2,bus=virtio,sparse=true \
+    --disk vol=default/${VM_NAME}-config-drive.iso,bus=virtio,format=raw \
     --boot hd \
     --noautoconsole \
     --os-type generic \
     ${network_options[@]}
 
 if [[ $console == 1 ]]; then
-    virsh console maas-server
+    virsh console ${VM_NAME}
 fi
 
 ssh-keygen -R 10.0.${MANAGEMENT_NET}.2
@@ -264,4 +264,4 @@ MAAS_IP=10.0.${MANAGEMENT_NET}.2
 echo "MAAS server can be reached at ${MAAS_IP}"
 echo "    http://${MAAS_IP}:5240/MAAS"
 echo "You can check the installation progress by running"
-echo "    virsh console maas-server"
+echo "    virsh console ${VM_NAME}"
