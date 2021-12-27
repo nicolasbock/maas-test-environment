@@ -97,7 +97,8 @@ create_network() {
         virsh net-undefine ${net_name} || :
     fi
     virsh net-define <(sed --expression "s:NAME:${net_name}:" \
-        --expression "s:NETWORK:10.0.${net_subnet}.1:" maas-net.xml)
+        --expression "s:NETWORK4:10.0.${net_subnet}.1:" \
+        --expression "s/NETWORK6/fd20::${net_subnet}:1/" maas-net.xml)
 
     virsh net-autostart ${net_name}
     virsh net-start ${net_name}
