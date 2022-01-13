@@ -118,24 +118,42 @@ if (( debug == 1 )); then
     PS4='+(${BASH_SOURCE##*/}:${LINENO}) ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 fi
 
-read -r VIRSH_IP < <(xmllint --xpath '*/ip/@address' <(virsh net-dumpxml default) | awk -F = '{print $2}' | tr -d '"')
+maas_ip=10.0.0.2
+maasadmin() {
+    ssh root@${maas_ip} -- maas admin "$@"
+}
 
-for (( i = 0; i < ${#networks[@]}; i++ )); do
-    networks[${i}]="--network network=${networks[${i}]},model=virtio"
+VIRSH_IP_COUNT=$(xmllint --xpath 'count(//ip/@address)' <(virsh net-dumpxml default))
+declare -a VIRSH_IPS
+for (( i = 1; i <= VIRSH_IP_COUNT; i++ )); do
+    VIRSH_IPS[$((i - 1))]=$(xmllint --xpath "string(//ip[${i}]/@address)" <(virsh net-dumpxml default))
 done
 
+declare -a network_strings
+for (( i = 0; i < ${#networks[@]}; i++ )); do
+    network_strings[${i}]="--network network=${networks[${i}]},model=virtio,address.type=pci,address.slot=$((3 + i))"
+done
+
+declare -a disk_strings
 for (( i = 0; i < ${#disks[@]}; i++ )); do
     if [[ ${bus} = default ]]; then
-        disks[${i}]="--disk size=${disks[${i}]}"
+        disk_strings[${i}]="--disk size=${disks[${i}]}"
     else
-        disks[${i}]="--disk size=${disks[${i}]},bus=${bus}"
+        disk_strings[${i}]="--disk size=${disks[${i}]},bus=${bus}"
     fi
 done
 
-if virsh dominfo ${vm_id}; then
+ssh root@${maas_ip} -- 'maas login admin http://localhost:5240/MAAS $(cat ubuntu-api-key)'
+
+if virsh dominfo "${vm_id}"; then
     if (( force == 1 )); then
-        virsh destroy ${vm_id} || true
-        virsh undefine --remove-all-storage ${vm_id} || true
+        virsh destroy "${vm_id}" || true
+        virsh undefine --remove-all-storage "${vm_id}" || true
+        system_id=$(maasadmin machines read \
+            | jq -r ".[] | select(.hostname == \"${vm_id}\") | .system_id")
+        if [[ -n ${system_id} ]]; then
+            maasadmin machine delete "${system_id}"
+        fi
     else
         echo "VM with name ${vm_id} already exists"
         exit 1
@@ -143,36 +161,66 @@ if virsh dominfo ${vm_id}; then
 fi
 
 virt-install \
-    --name ${vm_id} \
-    --memory ${memory} \
-    ${disks[@]} \
-    ${networks[@]} \
+    --name "${vm_id}" \
+    --memory "${memory}" \
+    ${disk_strings[@]} \
+    ${network_strings[@]} \
     --boot network \
     $(if (( uefi == 1 )); then echo --boot uefi; fi) \
     --os-variant generic \
     --noautoconsole
 
-ip=10.0.0.2
 mac=$(xmllint --xpath "//source[@network='maas-oam-net']/../mac/@address" \
     <(virsh dumpxml ${vm_id}) \
     | awk -F= '{print $2}' | tr --delete '"')
 
-ssh root@${ip} -- 'maas login admin http://localhost:5240/MAAS $(cat ubuntu-api-key)'
-result=$(ssh root@${ip} -- maas admin machines create \
-    architecture=amd64 \
-    mac_addresses=${mac} \
-    hostname=${vm_id} \
-    power_type=virsh \
-    power_parameters_power_id=${vm_id} \
-    power_parameters_power_address=qemu+ssh://${USER}@${VIRSH_IP[0]}/system)
+while true; do
+    result=$(maasadmin machines create \
+        architecture=amd64 \
+        mac_addresses="${mac}" \
+        hostname="${vm_id}" \
+        power_type=virsh \
+        power_parameters_power_id="${vm_id}" \
+        power_parameters_power_address=qemu+ssh://"${USER}@${VIRSH_IPS[0]}"/system)
+    if (( $? == 0 )); then
+        break
+    fi
+done
 
 system_id=$(jq '.system_id' <(echo ${result}) | tr -d '"')
 
 if (( ${#tags[@]} > 0 )); then
-    for tag in ${tags[@]}; do
-        if ! ssh root@${ip} -- maas admin tag read ${tag}; then
-            ssh root@${ip} -- maas admin tags create name=${tag}
+    for tag in "${tags[@]}"; do
+        if ! maasadmin tag read "${tag}"; then
+            maasadmin tags create name="${tag}"
         fi
-        ssh root@${ip} -- maas admin tag update-nodes ${tag} add=${system_id}
+        maasadmin tag update-nodes "${tag}" add="${system_id}"
     done
 fi
+
+while [[ $(maasadmin machine read "${system_id}" \
+    | jq -r '.commissioning_status_name') != Passed ]]; do
+    sleep 10
+done
+
+for (( i = 1; i < ${#networks[@]}; i++ )); do
+    network_mode=AUTO
+    if [[ ${networks[i]} =~ oam ]]; then
+        network_mode=dhcp
+    fi
+    bridge=$(xmllint --xpath 'string(/network/bridge/@name)' <(virsh net-dumpxml ${networks[i]}))
+    readarray -t network_address < <(ip -json addr show dev "${bridge}" \
+        | jq -r '.[].addr_info[] | "\(.local)/\(.prefixlen)"')
+    network_name=$(python3 -c "import ipaddress; print(ipaddress.ip_network('${network_address[0]}', strict=False))")
+    subnet_id=$(maasadmin subnets read \
+        | jq -r ".[] | select(.name == \"${network_name}\") | .id")
+    interface_id=$(maasadmin interfaces read "${system_id}" \
+        | jq -r ".[] | select(.name == \"ens$((i + 3))\") | .id")
+    readarray -t vlan_ids < <(maasadmin fabrics read \
+        | jq -r ".[] | select(.name == \"${networks[i]}\") | .vlans[].id")
+    maasadmin interface update "${system_id}" "${interface_id}" vlan="${vlan_ids[0]}"
+    maasadmin interface link-subnet "${system_id}" "${interface_id}" \
+        subnet="${subnet_id}" mode="${network_mode}"
+done
+
+echo "done deploying ${vm_id}"

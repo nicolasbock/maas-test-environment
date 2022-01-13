@@ -3,7 +3,9 @@
 set -u -e
 
 SERIES=focal
+NETWORK_NAME_PREFIX=maas
 VM_NAME=maas-server
+VCPUS=2
 PROFILE=maas-profile.yaml
 : ${LP_KEYNAME:=undefined}
 : ${MAAS_CHANNEL:=2.7}
@@ -18,12 +20,11 @@ maas_deb=0
 
 MANAGEMENT_NET=0
 declare -A networks=(
-    [maas-oam-net]=${MANAGEMENT_NET}
-    [maas-admin-net]=1
-    [maas-internal-net]=2
-    [maas-public-net]=3
-    [maas-external-net]=4
-    [maas-k8s-net]=5
+    [${NETWORK_NAME_PREFIX}-oam-net]=${MANAGEMENT_NET}
+    [${NETWORK_NAME_PREFIX}-admin-net]=1
+    [${NETWORK_NAME_PREFIX}-internal-net]=2
+    [${NETWORK_NAME_PREFIX}-public-net]=3
+    [${NETWORK_NAME_PREFIX}-storage-net]=4
 )
 
 upload_volume() {
@@ -58,7 +59,7 @@ refresh_cloud_image() {
         $IMAGE_SRC \
         $IMAGE_DIR \
         'arch=amd64' \
-        'release~(trusty|xenial|bionic|focal)' \
+        'release~(precise|trusty|xenial|bionic|focal)' \
         --max=1 --progress
     sudo sstream-mirror \
         --keyring=$KEYRING_FILE \
@@ -96,9 +97,14 @@ create_network() {
         virsh net-destroy ${net_name} || :
         virsh net-undefine ${net_name} || :
     fi
+    local template=maas-net-route.xml
+    if [[ ${net_name} =~ oam ]]; then
+        template=maas-net-nat.xml
+    fi
     virsh net-define <(sed --expression "s:NAME:${net_name}:" \
         --expression "s:NETWORK4:10.0.${net_subnet}.1:" \
-        --expression "s/NETWORK6/fd20::${net_subnet}:1/" maas-net.xml)
+        --expression "s/NETWORK6/fd20::${net_subnet}:1/" \
+        ${template})
 
     virsh net-autostart ${net_name}
     virsh net-start ${net_name}
@@ -110,10 +116,10 @@ create_network() {
         --expression "s:DHCP:false:" \
         --expression "s:ADDRESS:10.0.${net_subnet}.2/24:" \
         --expression $( (( net_subnet == ${MANAGEMENT_NET} )) \
-        && echo "s:GATEWAY:10.0.${MANAGEMENT_NET}.1:" \
+        && echo "s:GATEWAY:10.0.${net_subnet}.1:" \
         || echo '/gateway4.*$/d') \
         --expression $( (( net_subnet == ${MANAGEMENT_NET} )) \
-        && echo "s/NAMESERVERS/[10.0.${MANAGEMENT_NET}.1]/" \
+        && echo "s/NAMESERVERS/[10.1.0.1]/" \
         || echo '/nameservers.*$/d --expression /^.*NAMESERVERS.*/d') \
         network-config > ${tempdir}/new-interface.yaml
     yq eval-all --inplace \
@@ -129,19 +135,33 @@ while (( $# > 0 )); do
             cat <<EOF
 Usage:
 
--h | --help     This help
--s | --series   The Ubuntu series (default: ${SERIES})
--r | --refresh  Refresh cloud images
--d | --debug    Print debugging information
--c | --console  Attach to VM console after creating it
--s | --sync     Sync MAAS images (default is not to)
---maas-deb      Install MAAS from deb (not snap)
+-h | --help             This help
+-s | --series           The Ubuntu series (default: ${SERIES})
+-m | --maas-channel     The MAAS version (default: ${MAAS_CHANNEL}). Note, <= 2.8 requires Bionic
+-j | --juju-channel     The Juju version (default: ${JUJU_CHANNEL})
+-r | --refresh          Refresh cloud images
+-d | --debug            Print debugging information
+-c | --console          Attach to VM console after creating it
+-s | --sync             Sync MAAS images (default is not to)
+--maas-deb              Install MAAS from deb (not snap)
+
+Environment Variables:
+
+LP_KEYNAME              The launchpad key to import
 EOF
             exit 0
             ;;
         --series|-s)
             shift
             SERIES=$1
+            ;;
+        --maas-channel|-m)
+            shift
+            MAAS_CHANNEL=$1
+            ;;
+        --juju-channel|-j)
+            shift
+            JUJU_CHANNEL=$1
             ;;
         --refresh|-r)
             refresh=1
@@ -172,6 +192,16 @@ if [[ ${debug} = 1 ]]; then
     PS4='+(${BASH_SOURCE##*/}:${LINENO}) ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 fi
 
+if (( $(bc -l <<< "${MAAS_CHANNEL} <= 2.8") )) && [[ ${SERIES} != bionic ]]; then
+    echo "MAAS channels <= 2.8 require Bionic"
+    exit 1
+fi
+
+if (( $(bc -l <<< "${MAAS_CHANNEL} > 2.8") )) && [[ ${SERIES} != focal ]]; then
+    echo "MAAS channels > 2.8 require Focal"
+    exit 1
+fi
+
 if [[ ${refresh} = 1 ]]; then
     refresh_cloud_image
 fi
@@ -186,6 +216,12 @@ ci_tempdir=$(TMPDIR=${PWD} mktemp --directory)
 tempdir=$(TMPDIR=${PWD} mktemp --directory)
 
 echo "Configuring networks"
+
+readarray -t existing_networks < <(virsh net-list --name | grep ${NETWORK_NAME_PREFIX})
+for network in ${existing_networks[@]}; do
+    virsh net-destroy ${network}
+    virsh net-undefine ${network}
+done
 
 declare -a network_options
 slot_offset=3
@@ -211,7 +247,9 @@ sed \
     --expression "s:JUJU_CHANNEL:${JUJU_CHANNEL}:g" \
     --expression "s:VIRSH_USER:${USER}:g" \
     --expression "s:MAAS_FROM_DEB:$(((maas_deb == 1)) && echo "yes"):" \
-    maas-test-setup.sh > ${tempdir}/maas-test-setup.sh
+    --expression "s:FABRIC_NAMES:${!networks[*]}:" \
+    --expression "s:DEFAULT_SERIES:${SERIES}:" \
+    maas-test-setup-new.sh > ${tempdir}/maas-test-setup.sh
 sed \
     --expression "s:VIRSH_USER:${USER}:g" \
     add-machine.sh > ${tempdir}/add-machine.sh
@@ -243,22 +281,22 @@ virsh vol-download --pool default ${image} ${tempdir}/${VM_NAME}.qcow2
 qemu-img resize ${tempdir}/${VM_NAME}.qcow2 40G
 upload_volume ${tempdir}/${VM_NAME}.qcow2
 
+ssh-keygen -R 10.0.${MANAGEMENT_NET}.2
+
 virt-install --name ${VM_NAME} \
     --memory $(( 6 * 1024 )) \
     --cpu host-passthrough,cache.mode=passthrough \
-    --vcpus maxvcpus=2 \
+    --vcpus maxvcpus=${VCPUS} \
     --disk vol=default/${VM_NAME}.qcow2,bus=virtio,sparse=true \
     --disk vol=default/${VM_NAME}-config-drive.iso,bus=virtio,format=raw \
     --boot hd \
     --noautoconsole \
-    --os-type generic \
+    --os-variant detect=on,name=generic \
     ${network_options[@]}
 
 if [[ $console == 1 ]]; then
     virsh console ${VM_NAME}
 fi
-
-ssh-keygen -R 10.0.${MANAGEMENT_NET}.2
 
 MAAS_IP=10.0.${MANAGEMENT_NET}.2
 echo "MAAS server can be reached at ${MAAS_IP}"

@@ -2,8 +2,15 @@
 
 set -x
 
+: ${bus:=scsi}
+: ${number_storage:=3}
+: ${number_small_compute:=2}
+: ${number_large_compute:=4}
+
+next_id=1
+
 # Storage nodes
-for i in {1..3}; do
+for i in $(seq ${next_id} ${number_storage}); do
   ./add-machine-hypervisor.sh \
     --name infra-$(printf "%02d" ${i}) \
     --debug \
@@ -12,17 +19,22 @@ for i in {1..3}; do
     --tag infra \
     --tag storage \
     --tag small \
-    --bus sata \
+    --bus "${bus}" \
     --disk 20 \
+    --disk 10 \
+    --disk 10 \
     --disk 10 \
     --disk 10 \
     --network maas-admin-net \
     --network maas-internal-net \
-    --network maas-external-net
+    --network maas-public-net \
+    --network maas-storage-net
 done
 
+next_id=$((next_id + number_storage))
+
 # Small computes
-for i in {4..8}; do
+for i in $(seq ${next_id} $((next_id + number_small_compute - 1))); do
   ./add-machine-hypervisor.sh \
     --name infra-$(printf "%02d" ${i}) \
     --debug \
@@ -31,15 +43,18 @@ for i in {4..8}; do
     --tag infra \
     --tag compute \
     --tag small \
-    --bus sata \
+    --bus "${bus}" \
     --disk 20 \
     --network maas-admin-net \
     --network maas-internal-net \
-    --network maas-external-net
+    --network maas-public-net \
+    --network maas-storage-net
 done
 
+next_id=$((next_id + number_small_compute))
+
 # Large computes
-for i in {9..12}; do
+for i in $(seq ${next_id} $((next_id + number_large_compute - 1))); do
   ./add-machine-hypervisor.sh \
     --name infra-$(printf "%02d" ${i}) \
     --debug \
@@ -48,9 +63,10 @@ for i in {9..12}; do
     --tag infra \
     --tag compute \
     --tag large \
-    --bus sata \
+    --bus "${bus}" \
     --disk 40 \
     --network maas-admin-net \
     --network maas-internal-net \
-    --network maas-external-net
+    --network maas-public-net \
+    --network maas-storage-net
 done
