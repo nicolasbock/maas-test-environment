@@ -268,6 +268,7 @@ sed \
     --expression "s:SETUP_SCRIPT:$(base64 --wrap 0 ${tempdir}/maas-test-setup.sh):" \
     --expression "s:ADD_MACHINE_SCRIPT:$(base64 --wrap 0 ${tempdir}/add-machine.sh):" \
     --expression "s:VIMRC:$(base64 --wrap 0 ${tempdir}/.vimrc):" \
+    --expression "s:COMMISSIONING_SNAP_PROXY:$(base64 --wrap 0 commissioning-snap-proxy.sh):" \
     --expression "s:SYNC:${sync}:" \
     user-data > ${ci_tempdir}/user-data
 

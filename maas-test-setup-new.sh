@@ -202,3 +202,8 @@ fi
 mkdir --mode 0700 --parents ${ssh_root_dir}
 cp --verbose /root/.ssh/id_rsa{,.pub} ${ssh_root_dir}
 chown --recursive maas: ${ssh_root_dir}
+
+maas admin node-scripts create \
+    name=99-snap-proxy \
+    type=commissioning \
+    script@=/root/99-commissioning-snap-proxy.sh

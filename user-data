@@ -50,6 +50,10 @@ write_files:
   content: VIMRC
   path: /etc/vim/vimrc.local
   permissions: '0644'
+- encoding: b64
+  content: COMMISSIONING_SNAP_PROXY
+  path: /root/99-commissioning-snap-proxy.sh
+  permissions: '0755'
 
 runcmd:
   - [maas-test-setup.sh, --sync, SYNC]
