@@ -55,6 +55,9 @@ declare -a model_defaults=(
     image-stream=released
     default-series=DEFAULT_SERIES
     apt-http-proxy=${PROXY}
+    apt-https-proxy=${PROXY}
+    snap-http-proxy=${PROXY}
+    snap-https-proxy=${PROXY}
 )
 
 for d in \${model_defaults[@]}; do
