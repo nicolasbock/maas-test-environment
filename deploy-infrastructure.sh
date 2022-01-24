@@ -6,6 +6,9 @@ set -x
 : ${number_storage:=3}
 : ${number_small_compute:=2}
 : ${number_large_compute:=4}
+: ${STORAGE_VCPUS:=2}
+: ${SMALL_COMPUTE_VCPUS:=2}
+: ${LARGE_COMPUTE_VCPUS:=4}
 
 next_id=1
 
@@ -14,6 +17,7 @@ for i in $(seq ${next_id} ${number_storage}); do
   ./add-machine-hypervisor.sh \
     --name infra-$(printf "%02d" ${i}) \
     --debug \
+    --vcpus ${STORAGE_VCPUS} \
     --memory $((2 * 1024)) \
     --force \
     --tag infra \
@@ -38,6 +42,7 @@ for i in $(seq ${next_id} $((next_id + number_small_compute - 1))); do
   ./add-machine-hypervisor.sh \
     --name infra-$(printf "%02d" ${i}) \
     --debug \
+    --vcpus ${SMALL_COMPUTE_VCPUS} \
     --memory $((2 * 1024)) \
     --force \
     --tag infra \
@@ -58,6 +63,7 @@ for i in $(seq ${next_id} $((next_id + number_large_compute - 1))); do
   ./add-machine-hypervisor.sh \
     --name infra-$(printf "%02d" ${i}) \
     --debug \
+    --vcpus ${LARGE_COMPUTE_VCPUS} \
     --memory $((8 * 1024)) \
     --force \
     --tag infra \
