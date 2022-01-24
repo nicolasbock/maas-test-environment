@@ -58,6 +58,8 @@ declare -a model_defaults=(
     apt-https-proxy=${PROXY}
     snap-http-proxy=${PROXY}
     snap-https-proxy=${PROXY}
+    juju-http-proxy=${PROXY}
+    juju-https-proxy=${PROXY}
 )
 
 for d in \${model_defaults[@]}; do
