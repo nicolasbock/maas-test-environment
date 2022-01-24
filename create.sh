@@ -102,7 +102,7 @@ create_network() {
         template=maas-net-nat.xml
     fi
     virsh net-define <(sed --expression "s:NAME:${net_name}:" \
-        --expression "s:NETWORK4:10.0.${net_subnet}.1:" \
+        --expression "s:NETWORK4:172.18.${net_subnet}.1:" \
         --expression "s/NETWORK6/fd20::${net_subnet}:1/" \
         ${template})
 
@@ -114,18 +114,19 @@ create_network() {
     )
     sed --expression "s:DEVICE:ens${slot_offset}:" \
         --expression "s:DHCP:false:" \
-        --expression "s:ADDRESS:10.0.${net_subnet}.2/24:" \
-        --expression $( (( net_subnet == ${MANAGEMENT_NET} )) \
-        && echo "s:GATEWAY:10.0.${net_subnet}.1:" \
+        --expression "s:ADDRESS:172.18.${net_subnet}.2/24:" \
+        --expression $( (( net_subnet == MANAGEMENT_NET )) \
+        && echo "s:SUBNET_GATEWAY:172.18.${net_subnet}.1:" \
         || echo '/gateway4.*$/d') \
-        --expression $( (( net_subnet == ${MANAGEMENT_NET} )) \
-        && echo "s/NAMESERVERS/[10.1.0.1]/" \
+        --expression $( (( net_subnet == MANAGEMENT_NET )) \
+        && echo "s/NAMESERVERS/[172.18.0.1]/" \
         || echo '/nameservers.*$/d --expression /^.*NAMESERVERS.*/d') \
-        network-config > ${tempdir}/new-interface.yaml
+        --expression "s:DEFAULT_GATEWAY:172.18.0.1:" \
+        network-config > "${tempdir}"/new-interface.yaml
     yq eval-all --inplace \
         'select(fileIndex == 0) * select(fileIndex == 1)' \
-        ${ci_tempdir}/network-config \
-        ${tempdir}/new-interface.yaml
+        "${ci_tempdir}"/network-config \
+        "${tempdir}"/new-interface.yaml
     slot_offset=$((slot_offset + 1))
 }
 
@@ -225,13 +226,13 @@ done
 
 declare -a network_options
 slot_offset=3
-cat > ${ci_tempdir}/network-config <<<ethernets:
+cat > "${ci_tempdir}"/network-config <<<ethernets:
 for network in ${!networks[@]}; do
     create_network ${network} ${networks[${network}]}
 done
 
 echo "network-config:"
-cat ${ci_tempdir}/network-config
+cat "${ci_tempdir}"/network-config
 
 if ! ssh-keygen -l -f ~/.ssh/id_rsa_maas-test; then
     ssh-keygen -N '' -f ~/.ssh/id_rsa_maas-test
@@ -246,43 +247,43 @@ sed \
     --expression "s:MAAS_CHANNEL:${MAAS_CHANNEL}:g" \
     --expression "s:JUJU_CHANNEL:${JUJU_CHANNEL}:g" \
     --expression "s:VIRSH_USER:${USER}:g" \
-    --expression "s:MAAS_FROM_DEB:$(((maas_deb == 1)) && echo "yes"):" \
+    --expression "s:MAAS_FROM_DEB:$( ((maas_deb == 1)) && echo "yes"):" \
     --expression "s:FABRIC_NAMES:${!networks[*]}:" \
     --expression "s:DEFAULT_SERIES:${SERIES}:" \
-    maas-test-setup-new.sh > ${tempdir}/maas-test-setup.sh
+    maas-test-setup-new.sh > "${tempdir}"/maas-test-setup.sh
 sed \
     --expression "s:VIRSH_USER:${USER}:g" \
-    add-machine.sh > ${tempdir}/add-machine.sh
+    add-machine.sh > "${tempdir}"/add-machine.sh
 sed \
     --expression "s:SSH_PUBLIC_KEY:$(cat ~/.ssh/id_rsa.pub):" \
-    meta-data > ${ci_tempdir}/meta-data
+    meta-data > "${ci_tempdir}"/meta-data
 if [[ -f ~/.vimrc ]]; then
-    cp ~/.vimrc ${tempdir}
+    cp ~/.vimrc "${tempdir}"
 else
-    touch ${tempdir}/.vimrc
+    touch "${tempdir}"/.vimrc
 fi
 sed \
     --expression "s:MAAS_SSH_PRIVATE_KEY:$(base64 --wrap 0 ~/.ssh/id_rsa_maas-test):" \
     --expression "s:MAAS_SSH_PUBLIC_KEY:$(base64 --wrap 0 ~/.ssh/id_rsa_maas-test.pub):" \
     --expression "s:SSH_PUBLIC_KEY:$(cat ~/.ssh/id_rsa.pub):" \
-    --expression "s:SETUP_SCRIPT:$(base64 --wrap 0 ${tempdir}/maas-test-setup.sh):" \
-    --expression "s:ADD_MACHINE_SCRIPT:$(base64 --wrap 0 ${tempdir}/add-machine.sh):" \
-    --expression "s:VIMRC:$(base64 --wrap 0 ${tempdir}/.vimrc):" \
+    --expression "s:SETUP_SCRIPT:$(base64 --wrap 0 "${tempdir}"/maas-test-setup.sh):" \
+    --expression "s:ADD_MACHINE_SCRIPT:$(base64 --wrap 0 "${tempdir}"/add-machine.sh):" \
+    --expression "s:VIMRC:$(base64 --wrap 0 "${tempdir}"/.vimrc):" \
     --expression "s:COMMISSIONING_SNAP_PROXY:$(base64 --wrap 0 commissioning-snap-proxy.sh):" \
     --expression "s:SYNC:${sync}:" \
-    user-data > ${ci_tempdir}/user-data
+    user-data > "${ci_tempdir}"/user-data
 
 echo "Creating config drive"
-genisoimage -r -V cidata -o ${VM_NAME}-config-drive.iso ${ci_tempdir}
+genisoimage -r -V cidata -o ${VM_NAME}-config-drive.iso "${ci_tempdir}"
 upload_volume ${VM_NAME}-config-drive.iso
 
 echo "Creating maas disk"
 image=${SERIES}-server-cloudimg-amd64.img
-virsh vol-download --pool default ${image} ${tempdir}/${VM_NAME}.qcow2
-qemu-img resize ${tempdir}/${VM_NAME}.qcow2 40G
-upload_volume ${tempdir}/${VM_NAME}.qcow2
+virsh vol-download --pool default ${image} "${tempdir}"/${VM_NAME}.qcow2
+qemu-img resize "${tempdir}"/${VM_NAME}.qcow2 40G
+upload_volume "${tempdir}"/${VM_NAME}.qcow2
 
-ssh-keygen -R 10.0.${MANAGEMENT_NET}.2
+ssh-keygen -R 172.18.${MANAGEMENT_NET}.2
 
 virt-install --name ${VM_NAME} \
     --memory $(( 6 * 1024 )) \
@@ -299,7 +300,7 @@ if [[ $console == 1 ]]; then
     virsh console ${VM_NAME}
 fi
 
-MAAS_IP=10.0.${MANAGEMENT_NET}.2
+MAAS_IP=172.18.${MANAGEMENT_NET}.2
 echo "MAAS server can be reached at ${MAAS_IP}"
 echo "    http://${MAAS_IP}:5240/MAAS"
 echo "You can check the installation progress by running"

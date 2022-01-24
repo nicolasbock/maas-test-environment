@@ -6,12 +6,12 @@ ethernets:
     dhcp4: DHCP
     addresses: [ADDRESS]
     mtu: 1500
-    gateway4: GATEWAY
+    gateway4: SUBNET_GATEWAY
     nameservers:
       addresses: NAMESERVERS
     routes:
       - to: 0.0.0.0
-        via: 10.0.0.1
+        via: DEFAULT_GATEWAY
 
 # Local Variables:
 # mode: yaml

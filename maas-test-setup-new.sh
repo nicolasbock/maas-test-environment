@@ -6,7 +6,7 @@ PS4='+(${BASH_SOURCE##*/}:${LINENO}) ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 
 PROXY_ADDRESS=squid-deb-proxy.virtual
 PROXY=http://${PROXY_ADDRESS}:8080
-DNS=10.1.0.1
+DNS=172.20.0.1
 
 snap set system proxy.http=${PROXY}
 snap set system proxy.https=${PROXY}
@@ -81,7 +81,7 @@ Host *
 Host 192.168.0.200
     IdentityFile ~/.ssh/id_rsa
 
-Host 10.*.*.*
+Host 172.18.*.*
     IdentityFile ~/testkey.priv
 EOF
 chown -R ubuntu: ~ubuntu/.ssh/config
@@ -94,7 +94,7 @@ clouds:
   mymaas:
     type: maas
     auth-types: [ oauth1 ]
-    endpoint: http://10.0.0.2:5240/MAAS/
+    endpoint: http://172.18.0.2:5240/MAAS/
 
 __EOF__
 cat << __EOF__ > /tmp/mymaas_credentials.txt
@@ -162,7 +162,7 @@ for fabric in "${fabrics[@]}"; do
     maas admin vlan update "${fabric}" 0 space="${fabric_names[${fabric}]}"
 done
 
-ab=10.0
+ab=172.18
 gw=${ab}.0.1
 cidr=${ab}.0.0/24
 subnet_id=$(maas admin subnets read | jq -r ".[] | select(.cidr==\"${cidr}\").id")

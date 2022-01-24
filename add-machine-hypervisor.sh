@@ -118,7 +118,7 @@ if (( debug == 1 )); then
     PS4='+(${BASH_SOURCE##*/}:${LINENO}) ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 fi
 
-maas_ip=10.0.0.2
+maas_ip=172.18.0.2
 maasadmin() {
     ssh root@${maas_ip} -- maas admin "$@"
 }
