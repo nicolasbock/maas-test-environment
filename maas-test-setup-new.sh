@@ -54,6 +54,7 @@ declare -a model_config=()
 declare -a model_defaults=(
     image-stream=released
     default-series=DEFAULT_SERIES
+    no-proxy=127.0.0.1,localhost,::1,172.18.0.0/16
     apt-http-proxy=${PROXY}
     apt-https-proxy=${PROXY}
     snap-http-proxy=${PROXY}

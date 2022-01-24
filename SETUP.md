@@ -123,6 +123,28 @@ We use apache to serve server images:
 
 We use `squid-deb-proxy` to cache packages:
 
+    $ cat /etc/squid-deb-proxy/squid-deb-proxy.conf
+    # This file contains domains that are not cached.
+    acl nocache_domains dstdomain "/etc/squid-deb-proxy/nocache.acl.d/nocache-dstdomain.acl"
+    acl nocache_cidrs dst "/etc/squid-deb-proxy/nocache.acl.d/nocache-dst.acl"
+    # allow connects to ports for http, https
+    acl Safe_ports port 80 443
+    # allow connects to MAAS
+    acl Safe_ports port 5240
+    # allow connects to apache
+    acl Safe_ports port 8000
+    http_access allow nocache_domains nocache_cidrs
+
+    $ cat /etc/squid-deb-proxy/nocache.acl.d/nocache-dstdomain.acl
+    .virtual
+
+    $ cat /etc/squid-deb-proxy/nocache.acl.d/nocache-dst.acl
+    172.18.0.0/16
+
+# This file contains domains that are not cached.
+acl nocache_domains dstdomain "/etc/squid-deb-proxy/nocache.acl.d/nocache-dstdomain.acl"
+acl nocache_cidrs dst "/etc/squid-deb-proxy/nocache.acl.d/nocache-dst.acl"
+
     $ cat /etc/squid-deb-proxy/mirror-dstdomain.acl.d/10-default 
     api.snapcraft.io
     .charmhub.io
