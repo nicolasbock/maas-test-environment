@@ -199,6 +199,8 @@ fabric=$(maas admin subnets read | jq ".[] | select(.cidr == \"${cidr}\") \
 maas admin vlan update "${fabric}" 0 dhcp_on=true \
     primary_rack="${primary}"
 
+# Copy ssh keys to MAAS controller so that it can talk to the libvirt daemon on
+# the hypervisor.
 declare ssh_root_dir
 if [[ "MAAS_FROM_DEB" == yes ]]; then
     ssh_root_dir=/var/snap/maas/current/root/.ssh
