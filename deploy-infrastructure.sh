@@ -3,12 +3,12 @@
 set -x
 
 : ${bus:=scsi}
-: ${number_storage:=3}
-: ${number_small_compute:=2}
-: ${number_large_compute:=4}
+: ${number_storage:=0}
+: ${number_small_compute:=0}
+: ${number_large_compute:=9}
 : ${STORAGE_VCPUS:=2}
 : ${SMALL_COMPUTE_VCPUS:=2}
-: ${LARGE_COMPUTE_VCPUS:=4}
+: ${LARGE_COMPUTE_VCPUS:=2}
 
 next_id=1
 
@@ -70,7 +70,11 @@ for i in $(seq ${next_id} $((next_id + number_large_compute - 1))); do
     --tag compute \
     --tag large \
     --bus "${bus}" \
-    --disk 40 \
+    --disk 20 \
+    --disk 10 \
+    --disk 10 \
+    --disk 10 \
+    --disk 10 \
     --network maas-admin-net \
     --network maas-internal-net \
     --network maas-public-net \
