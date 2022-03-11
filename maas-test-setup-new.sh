@@ -36,6 +36,9 @@ apt-get update
 
 DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends maas
 maas_db_password=$(sudo grep dbc_dbpass= /etc/dbconfig-common/maas-region-controller.conf | sed -e "s:^.*'\([^']*\)':\1:")
+if [[ -z ${maas_db_password} ]]; then
+    echo "Could not get MAAS password"
+fi
 
 if ! maas admin account list-authorisation-tokens; then
     maas createadmin \
