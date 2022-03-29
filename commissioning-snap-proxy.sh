@@ -1,10 +1,10 @@
 #!/bin/bash
 
 while true; do
-  if snap version; then
-    break
-  fi
-  sleep 2
+    if snap version; then
+        break
+    fi
+    sleep 2
 done
 
 snap set system proxy.http=http://squid-deb-proxy.virtual:8080

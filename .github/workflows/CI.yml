@@ -31,7 +31,7 @@ jobs:
           pip install bashate
 
       - name: Lint
-        run: bashate --verbose --ignore E006 *.sh
+        run: bashate --verbose --ignore E006 --ignore E044 *.sh
 
       - name: Install MAAS server
         run: |
