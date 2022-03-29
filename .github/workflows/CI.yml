@@ -27,21 +27,10 @@ jobs:
             python3-pip \
             qemu-system \
             libvirt-daemon-system
-          sudo usermod --append --groups libvirt $(id --user --name)
           pip install bashate
+
+      - name: Set up user accounts
+        run: sudo usermod --append --groups libvirt $(id --user --name)
 
       - name: Lint
         run: bashate --verbose --ignore E006 --ignore E044 *.sh
-
-      - name: Install MAAS server
-        run: |
-          set -eux
-          sudo --user $(id --user --name) \
-            ./create.sh \
-            --debug \
-            --console \
-            --series bionic \
-            --maas-channel 2.7 \
-            --juju-channel 2.8 \
-            --maas-deb \
-            --postgresql
