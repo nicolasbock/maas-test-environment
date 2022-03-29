@@ -2,12 +2,12 @@
 
 set -u -e
 
-SERIES=focal
 NETWORK_NAME_PREFIX=maas
 VM_NAME=maas-server
 VCPUS=2
 PROFILE=maas-profile.yaml
 
+series=focal
 debug=0
 refresh=0
 console=0
@@ -53,6 +53,7 @@ refresh_cloud_image() {
     local KEYRING_FILE=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg
     local IMAGE_SRC=https://images.maas.io/ephemeral-v3/stable
     local IMAGE_DIR=/var/www/html/maas/images/ephemeral-v3/stable
+    local series
 
     sudo sstream-mirror \
         --keyring=$KEYRING_FILE \
@@ -137,7 +138,7 @@ while (( $# > 0 )); do
 Usage:
 
 -h | --help          This help
--s | --series        The Ubuntu series (default: ${SERIES})
+-s | --series        The Ubuntu series (default: ${series})
 -r | --refresh       Refresh cloud images
 -d | --debug         Print debugging information
 -c | --console       Attach to VM console after creating it
@@ -152,15 +153,7 @@ EOF
             ;;
         --series|-s)
             shift
-            SERIES=$1
-            ;;
-        --maas-channel|-m)
-            shift
-            MAAS_CHANNEL=$1
-            ;;
-        --juju-channel|-j)
-            shift
-            JUJU_CHANNEL=$1
+            series=$1
             ;;
         --refresh|-r)
             refresh=1
@@ -173,9 +166,6 @@ EOF
             ;;
         --sync|-s)
             sync=1
-            ;;
-        --maas-deb)
-            maas_deb=1
             ;;
         --maas-channel|-m)
             shift
@@ -195,6 +185,9 @@ EOF
         --no-postgresql)
             postgresql=0
             ;;
+        --maas-deb)
+            maas_deb=1
+            ;;
         *)
             echo "unknown command line argument $1"
             exit 1
@@ -209,12 +202,12 @@ if [[ ${debug} = 1 ]]; then
     PS4='+(${BASH_SOURCE##*/}:${LINENO}) ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 fi
 
-if (( $(bc -l <<< "${MAAS_CHANNEL} <= 2.8") )) && [[ ${SERIES} != bionic ]]; then
+if (( $(bc -l <<< "${maas_channel} <= 2.8") )) && [[ ${series} != bionic ]]; then
     echo "MAAS channels <= 2.8 require Bionic"
     exit 1
 fi
 
-if (( $(bc -l <<< "${MAAS_CHANNEL} > 2.8") )) && [[ ${SERIES} != focal ]]; then
+if (( $(bc -l <<< "${maas_channel} > 2.8") )) && [[ ${series} != focal ]]; then
     echo "MAAS channels > 2.8 require Focal"
     exit 1
 fi
@@ -265,7 +258,7 @@ sed \
     --expression "s:VIRSH_USER:${USER}:g" \
     --expression "s:MAAS_FROM_DEB:$( ((maas_deb == 1)) && echo "yes"):" \
     --expression "s:FABRIC_NAMES:${!networks[*]}:" \
-    --expression "s:DEFAULT_SERIES:${SERIES}:" \
+    --expression "s:DEFAULT_SERIES:${series}:" \
     maas-test-setup-new.sh > "${tempdir}"/maas-test-setup.sh
 sed \
     --expression "s:VIRSH_USER:${USER}:g" \
@@ -294,7 +287,7 @@ genisoimage -r -V cidata -o ${VM_NAME}-config-drive.iso "${ci_tempdir}"
 upload_volume ${VM_NAME}-config-drive.iso
 
 echo "Creating maas disk"
-image=${SERIES}-server-cloudimg-amd64.img
+image=${series}-server-cloudimg-amd64.img
 virsh vol-download --pool default ${image} "${tempdir}"/${VM_NAME}.qcow2
 qemu-img resize "${tempdir}"/${VM_NAME}.qcow2 40G
 upload_volume "${tempdir}"/${VM_NAME}.qcow2
