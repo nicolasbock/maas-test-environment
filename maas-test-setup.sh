@@ -22,8 +22,8 @@ PS4='+(${BASH_SOURCE##*/}:${LINENO}) ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 export DEBIAN_FRONTEND=noninteractive
 
 # Delete default libvirt network
-virsh net-destroy default 2>/dev/null || true
-virsh net-undefine default 2>/dev/null || true
+# virsh net-destroy default 2>/dev/null || true
+# virsh net-undefine default 2>/dev/null || true
 
 # Setup maas host as gateway
 #
@@ -44,7 +44,7 @@ EOF
 chmod +x /etc/rc.local
 /etc/rc.local
 
-cat <<- EOF| tee /etc/sysctl.d/80-canonical.conf
+cat <<- EOF | tee /etc/sysctl.d/80-canonical.conf
 net.ipv4.ip_forward=1
 net.ipv6.conf.all.forwarding=1
 EOF
@@ -205,6 +205,8 @@ maas admin boot-sources create \
     keyring_filename=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg
 maas admin boot-source delete 1
 
+maas admin boot-source-selections create 2 os="ubuntu" release="trusty" \
+    arches="amd64" subarches="*" labels="*" || :
 maas admin boot-source-selections create 2 os="ubuntu" release="xenial" \
     arches="amd64" subarches="*" labels="*" || :
 maas admin boot-source-selections create 2 os="ubuntu" release="bionic" \
@@ -215,25 +217,13 @@ maas admin boot-source-selections create 2 os="ubuntu" release="focal" \
 maas admin boot-sources read
 
 if (( sync == 1 )); then
-    while true; do
-        if maas admin boot-resources read | jq -e '.[] | select(.name == "ubuntu/xenial" and .type == "Synced")'; then
-            break
-        fi
-        sleep 10
-    done
-
-    while true; do
-        if maas admin boot-resources read | jq -e '.[] | select(.name == "ubuntu/bionic" and .type == "Synced")'; then
-            break
-        fi
-        sleep 10
-    done
-
-    while true; do
-        if maas admin boot-resources read | jq -e '.[] | select(.name == "ubuntu/focal" and .type == "Synced")'; then
-            break
-        fi
-        sleep 10
+    for series in trusty xenial bionic focal; do
+        while true; do
+            if maas admin boot-resources read | jq -e '.[] | select(.name == "ubuntu/${series}" and .type == "Synced")'; then
+                break
+            fi
+            sleep 10
+        done
     done
 
     maas admin maas set-config name=commissioning_distro_series value=focal
@@ -249,16 +239,17 @@ maas admin spaces create name=external
 maas admin spaces create name=k8s
 
 # Default all to oam (then change below)
-read -a fabrics<<<`maas admin fabrics read | jq .[].id`
+read -r -a fabrics <(maas admin fabrics read | jq .[].id)
 for fabric in ${fabrics[@]}; do
-    maas admin vlan update $fabric 0 space=oam
+    maas admin vlan update ${fabric} 0 space=oam
 done
 
 ab=10.0
 gw=${ab}.0.2
 dns=${ab}.0.2  # <- MUST BE SET TO MAAS HOST IP
 cidr=${ab}.0.0/24
-subnet_id=`maas admin subnets read | jq -r ".[] | select(.cidr==\"${cidr}\").id"`
+subnet_id=$(maas admin subnets read | jq -r ".[] | select(.cidr==\"${cidr}\").id")
+
 maas admin subnet update $subnet_id gateway_ip=$gw
 maas admin subnet update $subnet_id dns_servers=$dns
 
@@ -271,10 +262,11 @@ maas admin ipranges create type=dynamic subnet="$subnet_id" \
     comment="Enlisting, commissioning etc" \
     start_ip=${ab}.0.3 end_ip=${ab}.0.100
 
-primary=`maas admin rack-controllers read | jq .[].system_id | tr -d '"'`
-fabric=$(maas admin subnets read | jq ".[] | select(.cidr == \"${cidr}\") | .vlan.fabric" | tr -d '"')
+primary=$(maas admin rack-controllers read | jq -r .[].system_id)
+fabric=$(maas admin subnets read | jq ".[] | select(.cidr == \"${cidr}\") \
+    | .vlan.fabric" | tr -d '"')
 maas admin vlan update ${fabric} 0 dhcp_on=true \
-    primary_rack=$primary
+    primary_rack=${primary}
 
 declare -A cidrs=(
     [admin]=24
