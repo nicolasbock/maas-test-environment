@@ -209,9 +209,9 @@ maas admin vlan update "${fabric}" 0 dhcp_on=true \
 # the hypervisor.
 declare ssh_root_dir
 if [[ "MAAS_FROM_DEB" == yes ]]; then
-    ssh_root_dir=/var/snap/maas/current/root/.ssh
-else
     ssh_root_dir=/var/lib/maas/.ssh
+else
+    ssh_root_dir=/var/snap/maas/current/root/.ssh
 fi
 mkdir --mode 0700 --parents ${ssh_root_dir}
 cp --verbose /root/.ssh/id_rsa{,.pub} ${ssh_root_dir}
