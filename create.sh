@@ -2,10 +2,12 @@
 
 set -u -e
 
-SERIES=focal
-VM_NAME=maas
+NETWORK_NAME_PREFIX=maas
+VM_NAME=maas-server
+VCPUS=2
 PROFILE=maas-profile.yaml
 
+series=focal
 debug=0
 refresh=0
 console=0
@@ -18,12 +20,11 @@ postgresql=1
 
 MANAGEMENT_NET=0
 declare -A networks=(
-    [maas-oam-net]=${MANAGEMENT_NET}
-    [maas-admin-net]=1
-    [maas-internal-net]=2
-    [maas-public-net]=3
-    [maas-external-net]=4
-    [maas-k8s-net]=5
+    [${NETWORK_NAME_PREFIX}-oam-net]=${MANAGEMENT_NET}
+    [${NETWORK_NAME_PREFIX}-admin-net]=1
+    [${NETWORK_NAME_PREFIX}-internal-net]=2
+    [${NETWORK_NAME_PREFIX}-public-net]=3
+    [${NETWORK_NAME_PREFIX}-storage-net]=4
 )
 
 upload_volume() {
@@ -52,13 +53,14 @@ refresh_cloud_image() {
     local KEYRING_FILE=/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg
     local IMAGE_SRC=https://images.maas.io/ephemeral-v3/stable
     local IMAGE_DIR=/var/www/html/maas/images/ephemeral-v3/stable
+    local series
 
     sudo sstream-mirror \
         --keyring=$KEYRING_FILE \
         $IMAGE_SRC \
         $IMAGE_DIR \
         'arch=amd64' \
-        'release~(xenial|bionic|focal)' \
+        'release~(precise|trusty|xenial|bionic|focal)' \
         --max=1 --progress
     sudo sstream-mirror \
         --keyring=$KEYRING_FILE \
@@ -79,7 +81,7 @@ refresh_cloud_image() {
         fi
 
         new_md5sum=$(md5sum ${image} | awk '{print $1}')
-        old_md5sum=$(sudo md5sum $(virsh vol-path ${image} default) | awk '{print $1}')
+        old_md5sum=$(sudo md5sum "$(virsh vol-path ${image} default)" | awk '{print $1}')
 
         if [[ ${new_md5sum} != ${old_md5sum} ]]; then
             echo "Updating image ${image}"
@@ -96,8 +98,14 @@ create_network() {
         virsh net-destroy ${net_name} || :
         virsh net-undefine ${net_name} || :
     fi
+    local template=maas-net-route.xml
+    if [[ ${net_name} =~ oam ]]; then
+        template=maas-net-nat.xml
+    fi
     virsh net-define <(sed --expression "s:NAME:${net_name}:" \
-        --expression "s:NETWORK:10.0.${net_subnet}.1:" maas-net.xml)
+        --expression "s:NETWORK4:172.18.${net_subnet}.1:" \
+        --expression "s/NETWORK6/fd20::${net_subnet}:1/" \
+        ${template})
 
     virsh net-autostart ${net_name}
     virsh net-start ${net_name}
@@ -107,18 +115,19 @@ create_network() {
     )
     sed --expression "s:DEVICE:ens${slot_offset}:" \
         --expression "s:DHCP:false:" \
-        --expression "s:ADDRESS:10.0.${net_subnet}.2/24:" \
-        --expression $( (( net_subnet == ${MANAGEMENT_NET} )) \
-        && echo "s:GATEWAY:10.0.${MANAGEMENT_NET}.1:" \
+        --expression "s:ADDRESS:172.18.${net_subnet}.2/24:" \
+        --expression $( (( net_subnet == MANAGEMENT_NET )) \
+        && echo "s:SUBNET_GATEWAY:172.18.${net_subnet}.1:" \
         || echo '/gateway4.*$/d') \
-        --expression $( (( net_subnet == ${MANAGEMENT_NET} )) \
-        && echo "s/NAMESERVERS/[10.0.${MANAGEMENT_NET}.1]/" \
+        --expression $( (( net_subnet == MANAGEMENT_NET )) \
+        && echo "s/NAMESERVERS/[172.18.0.1]/" \
         || echo '/nameservers.*$/d --expression /^.*NAMESERVERS.*/d') \
-        network-config > ${tempdir}/new-interface.yaml
+        --expression "s:DEFAULT_GATEWAY:172.18.0.1:" \
+        network-config > "${tempdir}"/new-interface.yaml
     yq eval-all --inplace \
         'select(fileIndex == 0) * select(fileIndex == 1)' \
-        ${ci_tempdir}/network-config \
-        ${tempdir}/new-interface.yaml
+        "${ci_tempdir}"/network-config \
+        "${tempdir}"/new-interface.yaml
     slot_offset=$((slot_offset + 1))
 }
 
@@ -129,7 +138,7 @@ while (( $# > 0 )); do
 Usage:
 
 -h | --help          This help
--s | --series        The Ubuntu series (default: ${SERIES})
+-s | --series        The Ubuntu series (default: ${series})
 -r | --refresh       Refresh cloud images
 -d | --debug         Print debugging information
 -c | --console       Attach to VM console after creating it
@@ -144,7 +153,7 @@ EOF
             ;;
         --series|-s)
             shift
-            SERIES=$1
+            series=$1
             ;;
         --refresh|-r)
             refresh=1
@@ -157,6 +166,24 @@ EOF
             ;;
         --sync|-s)
             sync=1
+            ;;
+        --maas-channel|-m)
+            shift
+            maas_channel=$1
+            ;;
+        --juju-channel|-j)
+            shift
+            juju_channel=$1
+            ;;
+        --lp-keyname|-k)
+            shift
+            lp_keyname=$1
+            ;;
+        --postgresql)
+            postgresql=1
+            ;;
+        --no-postgresql)
+            postgresql=0
             ;;
         --maas-deb)
             maas_deb=1
@@ -193,14 +220,24 @@ if [[ ${debug} = 1 ]]; then
     PS4='+(${BASH_SOURCE##*/}:${LINENO}) ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 fi
 
+if (( $(bc -l <<< "${maas_channel} <= 2.8") )) && [[ ${series} != bionic ]]; then
+    echo "MAAS channels <= 2.8 require Bionic"
+    exit 1
+fi
+
+if (( $(bc -l <<< "${maas_channel} > 2.8") )) && [[ ${series} != focal ]]; then
+    echo "MAAS channels > 2.8 require Focal"
+    exit 1
+fi
+
 if [[ ${refresh} = 1 ]]; then
     refresh_cloud_image
 fi
 
 echo "Purging existing MAAS server"
-if virsh dominfo maas-server; then
-    virsh destroy maas-server || :
-    virsh undefine maas-server
+if virsh dominfo ${VM_NAME}; then
+    virsh destroy ${VM_NAME} || :
+    virsh undefine ${VM_NAME}
 fi
 
 ci_tempdir=$(TMPDIR=${PWD} mktemp --directory)
@@ -208,15 +245,21 @@ tempdir=$(TMPDIR=${PWD} mktemp --directory)
 
 echo "Configuring networks"
 
+readarray -t existing_networks < <(virsh net-list --name | grep ${NETWORK_NAME_PREFIX})
+for network in ${existing_networks[@]}; do
+    virsh net-destroy ${network}
+    virsh net-undefine ${network}
+done
+
 declare -a network_options
 slot_offset=3
-cat > ${ci_tempdir}/network-config <<<ethernets:
+cat > "${ci_tempdir}"/network-config <<<ethernets:
 for network in ${!networks[@]}; do
     create_network ${network} ${networks[${network}]}
 done
 
 echo "network-config:"
-cat ${ci_tempdir}/network-config
+cat "${ci_tempdir}"/network-config
 
 if ! ssh-keygen -l -f ~/.ssh/id_rsa_maas-test; then
     ssh-keygen -N '' -f ~/.ssh/id_rsa_maas-test
@@ -231,58 +274,61 @@ sed \
     --expression "s:MAAS_CHANNEL:${maas_channel}:g" \
     --expression "s:JUJU_CHANNEL:${juju_channel}:g" \
     --expression "s:VIRSH_USER:${USER}:g" \
-    --expression "s:MAAS_FROM_DEB:$(((maas_deb == 1)) && echo "yes"):" \
-    maas-test-setup.sh > ${tempdir}/maas-test-setup.sh
+    --expression "s:MAAS_FROM_DEB:$( ((maas_deb == 1)) && echo "yes"):" \
+    --expression "s:FABRIC_NAMES:${!networks[*]}:" \
+    --expression "s:DEFAULT_SERIES:${series}:" \
+    maas-test-setup-new.sh > "${tempdir}"/maas-test-setup.sh
 sed \
     --expression "s:VIRSH_USER:${USER}:g" \
-    add-machine.sh > ${tempdir}/add-machine.sh
+    add-machine.sh > "${tempdir}"/add-machine.sh
 sed \
     --expression "s:SSH_PUBLIC_KEY:$(cat ~/.ssh/id_rsa.pub):" \
-    meta-data > ${ci_tempdir}/meta-data
+    meta-data > "${ci_tempdir}"/meta-data
 if [[ -f ~/.vimrc ]]; then
-    cp ~/.vimrc ${tempdir}
+    cp ~/.vimrc "${tempdir}"
 else
-    touch ${tempdir}/.vimrc
+    touch "${tempdir}"/.vimrc
 fi
 sed \
     --expression "s:MAAS_SSH_PRIVATE_KEY:$(base64 --wrap 0 ~/.ssh/id_rsa_maas-test):" \
     --expression "s:MAAS_SSH_PUBLIC_KEY:$(base64 --wrap 0 ~/.ssh/id_rsa_maas-test.pub):" \
     --expression "s:SSH_PUBLIC_KEY:$(cat ~/.ssh/id_rsa.pub):" \
-    --expression "s:SETUP_SCRIPT:$(base64 --wrap 0 ${tempdir}/maas-test-setup.sh):" \
-    --expression "s:ADD_MACHINE_SCRIPT:$(base64 --wrap 0 ${tempdir}/add-machine.sh):" \
-    --expression "s:VIMRC:$(base64 --wrap 0 ${tempdir}/.vimrc):" \
+    --expression "s:SETUP_SCRIPT:$(base64 --wrap 0 "${tempdir}"/maas-test-setup.sh):" \
+    --expression "s:ADD_MACHINE_SCRIPT:$(base64 --wrap 0 "${tempdir}"/add-machine.sh):" \
+    --expression "s:VIMRC:$(base64 --wrap 0 "${tempdir}"/.vimrc):" \
+    --expression "s:COMMISSIONING_SNAP_PROXY:$(base64 --wrap 0 commissioning-snap-proxy.sh):" \
     --expression "s:SYNC:${sync}:" \
-    user-data > ${ci_tempdir}/user-data
+    user-data > "${ci_tempdir}"/user-data
 
 echo "Creating config drive"
-genisoimage -r -V cidata -o maas-server-config-drive.iso ${ci_tempdir}
-upload_volume maas-server-config-drive.iso
+genisoimage -r -V cidata -o ${VM_NAME}-config-drive.iso "${ci_tempdir}"
+upload_volume ${VM_NAME}-config-drive.iso
 
 echo "Creating maas disk"
-image=${SERIES}-server-cloudimg-amd64.img
-virsh vol-download --pool default ${image} ${tempdir}/maas-server.qcow2
-qemu-img resize ${tempdir}/maas-server.qcow2 40G
-upload_volume ${tempdir}/maas-server.qcow2
+image=${series}-server-cloudimg-amd64.img
+virsh vol-download --pool default ${image} "${tempdir}"/${VM_NAME}.qcow2
+qemu-img resize "${tempdir}"/${VM_NAME}.qcow2 40G
+upload_volume "${tempdir}"/${VM_NAME}.qcow2
 
-virt-install --name maas-server \
+ssh-keygen -R 172.18.${MANAGEMENT_NET}.2
+
+virt-install --name ${VM_NAME} \
     --memory $(( 6 * 1024 )) \
     --cpu host-passthrough,cache.mode=passthrough \
-    --vcpus maxvcpus=2 \
-    --disk vol=default/maas-server.qcow2,bus=virtio,sparse=true \
-    --disk vol=default/maas-server-config-drive.iso,bus=virtio,format=raw \
+    --vcpus maxvcpus=${VCPUS} \
+    --disk vol=default/${VM_NAME}.qcow2,bus=virtio,sparse=true \
+    --disk vol=default/${VM_NAME}-config-drive.iso,bus=virtio,format=raw \
     --boot hd \
     --noautoconsole \
-    --os-type generic \
+    --os-variant detect=on,name=generic \
     ${network_options[@]}
 
 if [[ $console == 1 ]]; then
-    virsh console maas-server
+    virsh console ${VM_NAME}
 fi
 
-ssh-keygen -R 10.0.${MANAGEMENT_NET}.2
-
-MAAS_IP=10.0.${MANAGEMENT_NET}.2
+MAAS_IP=172.18.${MANAGEMENT_NET}.2
 echo "MAAS server can be reached at ${MAAS_IP}"
 echo "    http://${MAAS_IP}:5240/MAAS"
 echo "You can check the installation progress by running"
-echo "    virsh console maas-server"
+echo "    virsh console ${VM_NAME}"
