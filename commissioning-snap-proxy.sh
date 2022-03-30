@@ -7,8 +7,8 @@ while true; do
     sleep 2
 done
 
-snap set system proxy.http=http://squid-deb-proxy.virtual:8080
-snap set system proxy.https=http://squid-deb-proxy.virtual:8080
+SNAP_HTTP_PROXY
+SNAP_HTTPS_PROXY
 
 snap get system proxy
 
