@@ -318,7 +318,8 @@ virt-install --name ${VM_NAME} \
     --vcpus maxvcpus=${VCPUS} \
     --disk vol=default/${VM_NAME}.qcow2,bus=virtio,sparse=true \
     --disk vol=default/${VM_NAME}-config-drive.iso,bus=virtio,format=raw \
-    --boot hd \
+    --boot hd,bootmenu.enable=on \
+    --install no_install=true \
     --noautoconsole \
     --os-variant detect=on,name=generic \
     ${network_options[@]}
