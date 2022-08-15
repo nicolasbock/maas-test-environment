@@ -348,7 +348,7 @@ virt-install --name ${VM_NAME} \
     --boot hd,bootmenu.enable=on \
     --install no_install=true \
     --noautoconsole \
-    --os-variant detect=on,name=generic \
+    --os-variant detect=on,name=ubuntu${series} \
     ${network_options[@]}
 
 if [[ $console == 1 ]]; then
