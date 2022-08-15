@@ -12,6 +12,7 @@ debug=0
 refresh=0
 console=0
 sync=0
+: ${http_proxy:=}
 maas_deb=0
 maas_channel=2.7
 juju_channel=2.9
@@ -147,6 +148,7 @@ Usage:
 -j | --juju-channel  The juju channel (default: ${juju_channel})
 -k | --lp-keyname    The launchpad key name to import (default: ${lp_keyname})
 -p | --postgresql    Use postgresql package instead of maas-test-db (default: ${postgresql})
+--http_proxy PROXY   The http proxy (Can also be set via http_proxy environment variable)
 --maas-deb           Install MAAS from deb (not snap)
 EOF
             exit 0
@@ -205,6 +207,10 @@ EOF
             ;;
         --no-postgresql)
             postgresql=0
+            ;;
+        --http_proxy)
+            shift
+            http_proxy=$1
             ;;
         *)
             echo "unknown command line argument $1"
@@ -289,16 +295,37 @@ if [[ -f ~/.vimrc ]]; then
 else
     touch "${tempdir}"/.vimrc
 fi
+
+apt_proxy=
+snap_http_proxy=
+snap_https_proxy=
+if [[ -n ${http_proxy} ]]; then
+    apt_proxy="apt:\\n  http_proxy: ${http_proxy}"
+    snap_http_proxy="snap set system proxy.http=${http_proxy}"
+    snap_https_proxy="snap set system proxy.https=${http_proxy}"
+fi
+
+awk -v http_proxy="${snap_http_proxy}" \
+    -v https_proxy="${snap_https_proxy}" \
+    '{ gsub(/SNAP_HTTP_PROXY/, http_proxy); gsub(/SNAP_HTTPS_PROXY/, https_proxy) } { print($0) }' \
+    commissioning-snap-proxy.sh \
+    > ${tempdir}/commissioning-snap-proxy.sh
+
+snap set system proxy.http=http://squid-deb-proxy.virtual:8080
+snap set system proxy.https=http://squid-deb-proxy.virtual:8080
+
 sed \
     --expression "s:MAAS_SSH_PRIVATE_KEY:$(base64 --wrap 0 ~/.ssh/id_rsa_maas-test):" \
     --expression "s:MAAS_SSH_PUBLIC_KEY:$(base64 --wrap 0 ~/.ssh/id_rsa_maas-test.pub):" \
     --expression "s:SSH_PUBLIC_KEY:$(cat ~/.ssh/id_rsa.pub):" \
-    --expression "s:SETUP_SCRIPT:$(base64 --wrap 0 "${tempdir}"/maas-test-setup.sh):" \
-    --expression "s:ADD_MACHINE_SCRIPT:$(base64 --wrap 0 "${tempdir}"/add-machine.sh):" \
-    --expression "s:VIMRC:$(base64 --wrap 0 "${tempdir}"/.vimrc):" \
-    --expression "s:COMMISSIONING_SNAP_PROXY:$(base64 --wrap 0 commissioning-snap-proxy.sh):" \
+    --expression "s:SETUP_SCRIPT:$(base64 --wrap 0 ${tempdir}/maas-test-setup.sh):" \
+    --expression "s:ADD_MACHINE_SCRIPT:$(base64 --wrap 0 ${tempdir}/add-machine.sh):" \
+    --expression "s:VIMRC:$(base64 --wrap 0 ${tempdir}/.vimrc):" \
+    --expression "s:COMMISSIONING_SNAP_PROXY:$(base64 --wrap 0 ${tempdir}/commissioning-snap-proxy.sh):" \
     --expression "s:SYNC:${sync}:" \
-    user-data > "${ci_tempdir}"/user-data
+    user-data |
+    awk -v p="${apt_proxy}" '{ gsub(/APT_PROXY_SETTING/, p) } { print($0) }' \
+    > "${ci_tempdir}"/user-data
 
 echo "Creating config drive"
 genisoimage -r -V cidata -o ${VM_NAME}-config-drive.iso "${ci_tempdir}"

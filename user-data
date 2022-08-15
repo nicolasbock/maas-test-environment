@@ -8,8 +8,7 @@ package_update: True
 package_upgrade: True
 package_reboot_if_required: True
 
-apt:
-  http_proxy: http://squid-deb-proxy.virtual:8080
+APT_PROXY_SETTING
 
 packages:
   - jq
