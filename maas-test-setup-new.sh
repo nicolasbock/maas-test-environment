@@ -34,8 +34,14 @@ virsh net-autostart --disable default || echo "ignoring"
 apt-add-repository --yes ppa:maas/MAAS_CHANNEL
 apt-get update
 
-DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends maas
-maas_db_password=$(sudo grep dbc_dbpass= /etc/dbconfig-common/maas-region-controller.conf | sed -e "s:^.*'\([^']*\)':\1:")
+if [[ MAAS_FROM_DEB == yes ]]; then
+    DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends maas
+    maas_db_password=$(sudo grep dbc_dbpass= /etc/dbconfig-common/maas-region-controller.conf | sed -e "s:^.*'\([^']*\)':\1:")
+else
+    echo "I do not know how to install MAAS"
+    exit 1
+fi
+
 if [[ -z ${maas_db_password} ]]; then
     echo "Could not get MAAS password"
 fi
