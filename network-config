@@ -2,7 +2,8 @@ version: 2
 ethernets:
   DEVICE:
     match:
-      name: "DEVICE"
+      # name: "DEVICE"
+      macaddress: "MACADDRESS"
     dhcp4: DHCP
     addresses: [ADDRESS]
     mtu: 1500

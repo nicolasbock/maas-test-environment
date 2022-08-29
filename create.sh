@@ -94,6 +94,7 @@ refresh_cloud_image() {
 create_network() {
     local net_name=$1
     local net_subnet=$2
+    local mac_address=52:54:00:$(printf "%02d" $((slot_offset))):00:00
 
     if virsh net-info ${net_name}; then
         virsh net-destroy ${net_name} || :
@@ -112,10 +113,11 @@ create_network() {
     virsh net-start ${net_name}
     network_options=(
         ${network_options[@]}
-        --network network=${net_name},model=virtio,address.type="pci",address.slot=$((slot_offset))
+        --network network=${net_name},model=virtio,address.type="pci",address.slot=$((slot_offset)),mac.address=${mac_address}
     )
     sed --expression "s:DEVICE:ens${slot_offset}:" \
         --expression "s:DHCP:false:" \
+        --expression "s/MACADDRESS/${mac_address}/" \
         --expression "s:ADDRESS:172.18.${net_subnet}.2/24:" \
         --expression $( (( net_subnet == MANAGEMENT_NET )) \
         && echo "s:SUBNET_GATEWAY:172.18.${net_subnet}.1:" \
