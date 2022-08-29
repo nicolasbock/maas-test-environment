@@ -179,6 +179,7 @@ virt-install \
     ${disk_strings[@]} \
     ${network_strings[@]} \
     --boot network \
+    --install no_install=true \
     $(if (( uefi == 1 )); then echo --boot uefi; fi) \
     --os-variant generic \
     --noautoconsole
