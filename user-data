@@ -1,5 +1,4 @@
 #cloud-config
-debug: True
 disable_root: False
 ssh_pwauth: True
 ssh_authorized_keys:
@@ -55,7 +54,7 @@ write_files:
   permissions: '0755'
 
 runcmd:
-  - [maas-test-setup.sh, --sync, SYNC]
+  - [maas-test-setup.sh, --sync, "SYNC"]
 
 final_message: The MAAS server is ready
 
