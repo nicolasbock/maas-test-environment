@@ -231,7 +231,7 @@ for (( i = 1; i < ${#networks[@]}; i++ )); do
     subnet_id=$(maasadmin subnets read \
         | jq -r ".[] | select(.name == \"${network_name}\") | .id")
     interface_id=$(maasadmin interfaces read "${system_id}" \
-        | jq -r ".[] | select(.name == \"ens$((i + 3))\") | .id")
+        | jq -r ".[] | select(.name == \"enp0s$((i + 3))\") | .id")
     readarray -t vlan_ids < <(maasadmin fabrics read \
         | jq -r ".[] | select(.name == \"${networks[i]}\") | .vlans[].id")
     maasadmin interface update "${system_id}" "${interface_id}" vlan="${vlan_ids[0]}"
