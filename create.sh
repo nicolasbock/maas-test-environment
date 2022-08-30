@@ -13,7 +13,7 @@ refresh=0
 console=0
 sync=0
 : ${http_proxy:=}
-maas_deb=0
+maas_deb=1
 maas_channel=2.7
 juju_channel=2.9
 lp_keyname=undefined
@@ -191,6 +191,9 @@ EOF
             ;;
         --maas-deb)
             maas_deb=1
+            ;;
+        --no-maas-deb)
+            maas_deb=0
             ;;
         --maas-channel|-m)
             shift
