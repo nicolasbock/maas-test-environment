@@ -142,7 +142,9 @@ done
 
 declare -a network_strings
 for (( i = 0; i < ${#networks[@]}; i++ )); do
-    network_strings[${i}]="--network network=${networks[${i}]},model=virtio,address.type=pci,address.slot=$((3 + i))"
+    # mac_address=52:54:00:01:$(printf "%02x" $((i))):00
+    mac_address=RANDOM
+    network_strings[${i}]="--network network=${networks[${i}]},model=virtio,address.type=pci,address.slot=$((3 + i))",mac.address=${mac_address}
 done
 
 declare -a disk_strings
