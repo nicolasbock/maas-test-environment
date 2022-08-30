@@ -80,7 +80,7 @@ for d in \${model_defaults[@]}; do
 done
 
 juju bootstrap mymaas --no-gui --constraints "tags=juju" \
-    --constraints "mem=2G" \${model_config[@]} os_controller \
+    --constraints "mem=2G" \${model_config[@]} os-controller \
     --debug
 juju model-defaults \${model_defaults[@]}
 EOF
