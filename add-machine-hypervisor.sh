@@ -181,7 +181,8 @@ virt-install \
     --boot network \
     $(if (( uefi == 1 )); then echo --boot uefi; fi) \
     --os-variant generic \
-    --noautoconsole
+    --noautoconsole \
+    --os-variant detect=on,name=ubuntu-lts-latest
 
 mac=$(xmllint --xpath "//source[@network='maas-oam-net']/../mac/@address" \
     <(virsh dumpxml ${vm_id}) \
