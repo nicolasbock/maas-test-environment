@@ -152,7 +152,7 @@ create_network() {
         && echo "s/NAMESERVERS/[172.18.0.1]/" \
         || echo '/nameservers.*$/d --expression /^.*NAMESERVERS.*/d') \
         --expression "s:DEFAULT_GATEWAY:172.18.0.1:" \
-        network-config > "${tempdir}"/new-interface.yaml
+        network-config.yaml > "${tempdir}"/new-interface.yaml
     yq eval-all --inplace \
         'select(fileIndex == 0) * select(fileIndex == 1)' \
         "${ci_tempdir}"/network-config \
