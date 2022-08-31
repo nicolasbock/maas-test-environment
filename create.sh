@@ -91,6 +91,32 @@ refresh_cloud_image() {
     done
 }
 
+get_netmask() {
+    local cidr=$1
+    python3 -c "import ipaddress; print(ipaddress.ip_network('${cidr}').netmask)"
+}
+
+get_prefix() {
+    local cidr=$1
+    python3 -c "import ipaddress; print(ipaddress.ip_network('${cidr}').prefixlen)"
+}
+
+get_network() {
+    local cidr=$1
+    python3 -c "import ipaddress; print(ipaddress.ip_network('${cidr}').network_address)"
+}
+
+get_gateway() {
+    local cidr=$1
+    get_host ${cidr} 0
+}
+
+get_host() {
+    local cidr=$1
+    local host=$2
+    python3 -c "import ipaddress; print(list(ipaddress.ip_network('${cidr}').hosts())[${host}])"
+}
+
 create_network() {
     local net_name=$1
     local net_subnet=$2
