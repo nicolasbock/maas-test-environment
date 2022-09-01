@@ -213,7 +213,7 @@ for line in "${subnet_ids[@]}"; do
     subnet_id=${subnet[0]}
     subnet_cidr=${subnet[1]}
     subnet_space=${subnet[2]}
-    
+
     subnet_gateway=$(get_gateway ${subnet_cidr})
 
     maas admin subnet update "${subnet_id}" gateway_ip=${subnet_gateway}
