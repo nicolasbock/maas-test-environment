@@ -241,6 +241,11 @@ if [[ ${debug} = 1 ]]; then
     PS4='+(${BASH_SOURCE##*/}:${LINENO}) ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 fi
 
+if [[ ${refresh} = 1 ]]; then
+    refresh_cloud_image
+    exit 0
+fi
+
 if (( $(bc -l <<< "${maas_channel} <= 2.8") )) && [[ ${series} != bionic ]]; then
     echo "MAAS channels <= 2.8 require Bionic"
     exit 1
@@ -251,18 +256,16 @@ if (( $(bc -l <<< "${maas_channel} > 2.8") )) && [[ ${series} != focal ]]; then
     exit 1
 fi
 
-if [[ ${refresh} = 1 ]]; then
-    refresh_cloud_image
-fi
-
 echo "Purging existing MAAS server"
 if virsh dominfo ${VM_NAME}; then
     virsh destroy ${VM_NAME} || :
     virsh undefine ${VM_NAME}
 fi
 
-ci_tempdir=$(mktemp --directory)
-tempdir=$(mktemp --directory)
+# If using jq or yq from snaps this cannot be in the regular place (/tmp) since
+# snaps don't have access to this folder.
+ci_tempdir=$(TMPDIR=${PWD} mktemp --directory)
+tempdir=$(TMPDIR=${PWD} mktemp --directory)
 
 echo "Configuring networks"
 
@@ -291,7 +294,7 @@ fi
 
 sed \
     --expression "s:LP_KEYNAME:${lp_keyname}:g" \
-    --expression "s:POSTGRESQL:$(((postgresql == 1)) && echo "yes"):g" \
+    --expression "s:POSTGRESQL:$( ((postgresql == 1)) && echo "yes" ):g" \
     --expression "s:MAAS_CHANNEL:${maas_channel}:g" \
     --expression "s:JUJU_CHANNEL:${juju_channel}:g" \
     --expression "s:VIRSH_USER:${USER}:g" \
@@ -367,9 +370,13 @@ virt-install --name ${VM_NAME} \
     --os-variant detect=on,name=ubuntu${series} \
     ${network_options[@]}
 
-if [[ $console == 1 ]]; then
+if (( console == 1 )); then
     virsh console ${VM_NAME}
 fi
+
+# Deleting tempdirs
+rm -rf "${ci_tempdir}"
+rm -rf "${tempdir}"
 
 MAAS_IP=$(get_host ${MANAGEMENT_NET} 1)
 echo "MAAS server can be reached at ${MAAS_IP}"
