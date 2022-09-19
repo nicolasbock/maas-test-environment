@@ -2,6 +2,17 @@
 
 set -e -u -x
 
+get_host() {
+    local cidr=$1
+    local host=$2
+    python3 -c "import ipaddress; print(list(ipaddress.ip_network('${cidr}').hosts())[${host}])"
+}
+
+get_gateway() {
+    local cidr=$1
+    get_host ${cidr} 0
+}
+
 PS4='+(${BASH_SOURCE##*/}:${LINENO}) ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 
 PROXY_ADDRESS=squid-deb-proxy.virtual
@@ -166,16 +177,29 @@ while ! maas admin maas set-config name=default_distro_series value=DEFAULT_SERI
 done
 
 declare -a fabric_names=( FABRIC_NAMES )
+declare -a fabric_cidrs=( FABRIC_CIDRS )
+declare -A fabrics=()
+declare oam_network_name
 
-for fabric in "${fabric_names[@]}"; do
-    maas admin spaces create name="${fabric}"
+if (( ${#fabric_names[@]} != ${#fabric_cidrs[@]} )); then
+    echo "Fabric names and CIDRs do not match"
+    exit 1
+fi
+
+for i in $(seq 0 $(( ${#fabric_names[@]} - 1 ))); do
+    fabrics[${fabric_names[${i}]}]=${fabric_cidrs[${i}]}
+    fabric_name=${fabric_names[${i}]}
+    fabric_cidr=${fabric_cidrs[${i}]}
+    if [[ ${fabric_name} =~ oam ]]; then
+        oam_network_name=${fabric_name}
+    fi
+    space_id=$(maas admin spaces create name="${fabric_name}" | jq '.id')
+    fabric_id=$(maas admin spaces read | jq --arg cidr ${fabric_cidr} '.[].subnets[] | select(.cidr == $cidr) | .vlan.fabric_id')
+    maas admin fabric update "${fabric_id}" name="${fabric_name}"
+    maas admin vlan update "${fabric_id}" 0 space="${fabric_name}"
 done
 
-readarray -t fabrics < <(maas admin fabrics read | jq '.[].id')
-for fabric in "${fabrics[@]}"; do
-    maas admin fabric update "${fabric}" name="${fabric_names[${fabric}]}"
-    maas admin vlan update "${fabric}" 0 space="${fabric_names[${fabric}]}"
-done
+default_gateway=$(get_host ${fabrics[${oam_network_name}]} 1)
 
 ab=172.18
 gw=${ab}.0.1
@@ -189,24 +213,31 @@ for line in "${subnet_ids[@]}"; do
     subnet_id=${subnet[0]}
     subnet_cidr=${subnet[1]}
     subnet_space=${subnet[2]}
-    subnet_gateway=${subnet_cidr/.0\/24/.1}
-    subnet_abc=${subnet_cidr/.0\/24/}
+
+    subnet_gateway=$(get_gateway ${subnet_cidr})
 
     maas admin subnet update "${subnet_id}" gateway_ip=${subnet_gateway}
     maas admin subnet update "${subnet_id}" dns_servers=${DNS}
 
-    maas admin ipranges create type=reserved subnet="${subnet_id}" \
+    maas admin ipranges create \
+        type=reserved \
+        subnet="${subnet_id}" \
         comment="Infra (gateway, MAAS node, etc)" \
-        start_ip=${subnet_abc}.1 end_ip=${subnet_abc}.2 \
-        gateway_ip=$gw dns_servers=${DNS}
+        start_ip=$(get_host ${subnet_cidr} 1) \
+        end_ip=$(get_host ${subnet_cidr} 10) \
+        gateway_ip=${default_gateway} \
+        dns_servers=${DNS}
 
-    maas admin ipranges create type=dynamic subnet="${subnet_id}" \
+    maas admin ipranges create \
+        type=dynamic \
+        subnet="${subnet_id}" \
         comment="Enlisting, commissioning, etc" \
-        start_ip=${subnet_abc}.3 end_ip=${subnet_abc}.200
+        start_ip=$(get_host ${subnet_cidr} 11) \
+        end_ip=$(get_host ${subnet_cidr} 200)
 done
 
 primary=$(maas admin rack-controllers read | jq -r .[].system_id)
-fabric=$(maas admin subnets read | jq ".[] | select(.cidr == \"${cidr}\") \
+fabric=$(maas admin subnets read | jq ".[] | select(.cidr == \"${fabrics[${oam_network_name}]}\") \
     | .vlan.fabric" | tr -d '"')
 maas admin vlan update "${fabric}" 0 dhcp_on=true \
     primary_rack="${primary}"

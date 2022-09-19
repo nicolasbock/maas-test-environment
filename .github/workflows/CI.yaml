@@ -33,4 +33,4 @@ jobs:
         run: sudo usermod --append --groups libvirt $(id --user --name)
 
       - name: Lint
-        run: bashate --verbose --ignore E006 --ignore E044 *.sh
+        run: bashate --verbose --ignore E006,E044 *.sh

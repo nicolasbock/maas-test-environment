@@ -19,13 +19,13 @@ juju_channel=2.9
 lp_keyname=undefined
 postgresql=1
 
-MANAGEMENT_NET=0
+MANAGEMENT_NET=172.18.0.0/24
 declare -A networks=(
     [${NETWORK_NAME_PREFIX}-oam-net]=${MANAGEMENT_NET}
-    [${NETWORK_NAME_PREFIX}-admin-net]=1
-    [${NETWORK_NAME_PREFIX}-internal-net]=2
-    [${NETWORK_NAME_PREFIX}-public-net]=3
-    [${NETWORK_NAME_PREFIX}-storage-net]=4
+    [${NETWORK_NAME_PREFIX}-admin-net]=172.18.1.0/24
+    [${NETWORK_NAME_PREFIX}-internal-net]=172.18.2.0/24
+    [${NETWORK_NAME_PREFIX}-public-net]=172.18.3.0/24
+    [${NETWORK_NAME_PREFIX}-storage-net]=172.18.4.0/24
 )
 
 upload_volume() {
@@ -91,10 +91,38 @@ refresh_cloud_image() {
     done
 }
 
+get_netmask() {
+    local cidr=$1
+    python3 -c "import ipaddress; print(ipaddress.ip_network('${cidr}').netmask)"
+}
+
+get_prefix() {
+    local cidr=$1
+    python3 -c "import ipaddress; print(ipaddress.ip_network('${cidr}').prefixlen)"
+}
+
+get_network() {
+    local cidr=$1
+    python3 -c "import ipaddress; print(ipaddress.ip_network('${cidr}').network_address)"
+}
+
+get_host() {
+    local cidr=$1
+    local host=$2
+    python3 -c "import ipaddress; print(list(ipaddress.ip_network('${cidr}').hosts())[${host}])"
+}
+
+get_gateway() {
+    local cidr=$1
+    get_host ${cidr} 0
+}
+
 create_network() {
     local net_name=$1
-    local net_subnet=$2
-    local mac_address=52:54:00:00:$(printf "%02x" $((slot_offset))):00
+    local net_cidr=$2
+    local mac_address
+
+    mac_address=52:54:00:00:$(printf "%02x" $((slot_offset))):00
 
     if virsh net-info ${net_name}; then
         virsh net-destroy ${net_name} || :
@@ -105,8 +133,8 @@ create_network() {
         template=maas-net-nat.xml
     fi
     virsh net-define <(sed --expression "s:NAME:${net_name}:" \
-        --expression "s:NETWORK4:172.18.${net_subnet}.1:" \
-        --expression "s/NETWORK6/fd20::${net_subnet}:1/" \
+        --expression "s/NETMASK/$(get_netmask ${net_cidr})/" \
+        --expression "s/NETWORK4/$(get_gateway ${net_cidr})/" \
         ${template})
 
     virsh net-autostart ${net_name}
@@ -118,15 +146,15 @@ create_network() {
     sed --expression "s:DEVICE:ens${slot_offset}:" \
         --expression "s:DHCP:false:" \
         --expression "s/MACADDRESS/${mac_address}/" \
-        --expression "s:ADDRESS:172.18.${net_subnet}.2/24:" \
-        --expression $( (( net_subnet == MANAGEMENT_NET )) \
-        && echo "s:SUBNET_GATEWAY:172.18.${net_subnet}.1:" \
+        --expression "s:ADDRESS:$(get_host ${net_cidr} 1)/$(get_prefix ${net_cidr}):" \
+        --expression $( [[ ${net_cidr} == ${MANAGEMENT_NET} ]] \
+        && echo "s:SUBNET_GATEWAY:$(get_gateway ${net_cidr}):" \
         || echo '/gateway4.*$/d') \
-        --expression $( (( net_subnet == MANAGEMENT_NET )) \
+        --expression $( [[ ${net_cidr} == ${MANAGEMENT_NET} ]] \
         && echo "s/NAMESERVERS/[172.18.0.1]/" \
         || echo '/nameservers.*$/d --expression /^.*NAMESERVERS.*/d') \
         --expression "s:DEFAULT_GATEWAY:172.18.0.1:" \
-        network-config > "${tempdir}"/new-interface.yaml
+        network-config.yaml > "${tempdir}"/new-interface.yaml
     yq eval-all --inplace \
         'select(fileIndex == 0) * select(fileIndex == 1)' \
         "${ci_tempdir}"/network-config \
@@ -150,8 +178,8 @@ Usage:
 -j | --juju-channel  The juju channel (default: ${juju_channel})
 -k | --lp-keyname    The launchpad key name to import (default: ${lp_keyname})
 -p | --postgresql    Use postgresql package instead of maas-test-db (default: ${postgresql})
---http_proxy PROXY   The http proxy (Can also be set via http_proxy environment variable)
 --maas-deb           Install MAAS from deb (not snap)
+--http_proxy PROXY   The http proxy (Can also be set via http_proxy environment variable)
 EOF
             exit 0
             ;;
@@ -195,24 +223,6 @@ EOF
         --no-maas-deb)
             maas_deb=0
             ;;
-        --maas-channel|-m)
-            shift
-            maas_channel=$1
-            ;;
-        --juju-channel|-j)
-            shift
-            juju_channel=$1
-            ;;
-        --lp-keyname|-k)
-            shift
-            lp_keyname=$1
-            ;;
-        --postgresql)
-            postgresql=1
-            ;;
-        --no-postgresql)
-            postgresql=0
-            ;;
         --http_proxy)
             shift
             http_proxy=$1
@@ -231,6 +241,11 @@ if [[ ${debug} = 1 ]]; then
     PS4='+(${BASH_SOURCE##*/}:${LINENO}) ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 fi
 
+if [[ ${refresh} = 1 ]]; then
+    refresh_cloud_image
+    exit 0
+fi
+
 if (( $(bc -l <<< "${maas_channel} <= 2.8") )) && [[ ${series} != bionic ]]; then
     echo "MAAS channels <= 2.8 require Bionic"
     exit 1
@@ -241,16 +256,14 @@ if (( $(bc -l <<< "${maas_channel} > 2.8") )) && [[ ${series} != focal ]]; then
     exit 1
 fi
 
-if [[ ${refresh} = 1 ]]; then
-    refresh_cloud_image
-fi
-
 echo "Purging existing MAAS server"
 if virsh dominfo ${VM_NAME}; then
     virsh destroy ${VM_NAME} || :
     virsh undefine ${VM_NAME}
 fi
 
+# If using jq or yq from snaps this cannot be in the regular place (/tmp) since
+# snaps don't have access to this folder.
 ci_tempdir=$(TMPDIR=${PWD} mktemp --directory)
 tempdir=$(TMPDIR=${PWD} mktemp --directory)
 
@@ -281,12 +294,13 @@ fi
 
 sed \
     --expression "s:LP_KEYNAME:${lp_keyname}:g" \
-    --expression "s:POSTGRESQL:$(((postgresql == 1)) && echo "yes"):g" \
+    --expression "s:POSTGRESQL:$( ((postgresql == 1)) && echo "yes" ):g" \
     --expression "s:MAAS_CHANNEL:${maas_channel}:g" \
     --expression "s:JUJU_CHANNEL:${juju_channel}:g" \
     --expression "s:VIRSH_USER:${USER}:g" \
     --expression "s:MAAS_FROM_DEB:$( ((maas_deb == 1)) && echo "yes"):" \
     --expression "s:FABRIC_NAMES:${!networks[*]}:" \
+    --expression "s:FABRIC_CIDRS:${networks[*]}:" \
     --expression "s:DEFAULT_SERIES:${series}:" \
     maas-test-setup-new.sh > "${tempdir}"/maas-test-setup.sh
 sed \
@@ -342,7 +356,7 @@ virsh vol-download --pool default ${image} "${tempdir}"/${VM_NAME}.qcow2
 qemu-img resize "${tempdir}"/${VM_NAME}.qcow2 40G
 upload_volume "${tempdir}"/${VM_NAME}.qcow2
 
-ssh-keygen -R 172.18.${MANAGEMENT_NET}.2
+ssh-keygen -R $(get_host ${MANAGEMENT_NET} 1)
 
 virt-install --name ${VM_NAME} \
     --memory $(( 6 * 1024 )) \
@@ -356,11 +370,15 @@ virt-install --name ${VM_NAME} \
     --os-variant detect=on,name=ubuntu${series} \
     ${network_options[@]}
 
-if [[ $console == 1 ]]; then
+if (( console == 1 )); then
     virsh console ${VM_NAME}
 fi
 
-MAAS_IP=172.18.${MANAGEMENT_NET}.2
+# Deleting tempdirs
+rm -rf "${ci_tempdir}"
+rm -rf "${tempdir}"
+
+MAAS_IP=$(get_host ${MANAGEMENT_NET} 1)
 echo "MAAS server can be reached at ${MAAS_IP}"
 echo "    http://${MAAS_IP}:5240/MAAS"
 echo "You can check the installation progress by running"
