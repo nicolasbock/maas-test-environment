@@ -57,21 +57,21 @@ refresh_cloud_image() {
     local series
 
     sudo sstream-mirror \
-        --keyring=$KEYRING_FILE \
-        $IMAGE_SRC \
-        $IMAGE_DIR \
+        --keyring=${KEYRING_FILE} \
+        ${IMAGE_SRC} \
+        ${IMAGE_DIR} \
         'arch=amd64' \
-        'release~(precise|trusty|xenial|bionic|focal)' \
+        'release~(precise|trusty|xenial|bionic|focal|jammy)' \
         --max=1 --progress
     sudo sstream-mirror \
-        --keyring=$KEYRING_FILE \
-        $IMAGE_SRC \
-        $IMAGE_DIR \
+        --keyring=${KEYRING_FILE} \
+        ${IMAGE_SRC} \
+        ${IMAGE_DIR} \
         'os~(grub*|pxelinux)' \
         --max=1 --progress
 
     echo "Refreshing cloud images"
-    for series in bionic focal; do
+    for series in bionic focal jammy; do
         image=${series}-server-cloudimg-amd64.img
         wget --show-progress --continue --timestamping \
             https://cloud-images.ubuntu.com/${series}/current/${image}
