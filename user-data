@@ -16,6 +16,7 @@ packages:
   - python3-virtualenv
   - systemd-journal-remote
   - virtinst
+
   # Set up remote logging
   # apt install --yes --no-install-recommends systemd-journal-remote
   # systemctl start systemd-journal-remote
