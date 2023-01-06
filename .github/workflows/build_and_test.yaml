@@ -1,0 +1,54 @@
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        python:
+          - 2.7
+          - 3.6
+          - 3.7
+          - 3.8
+          - 3.9
+          - '3.10'
+          - 3.11
+
+    runs-on: ubuntu-20.04
+
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '${{ matrix.python }}'
+
+      - name: Install tox
+        run: DEBIAN_FRONTEND=noninteractive sudo apt install --no-install-recommends --yes tox
+
+      - name: Run lint
+        run: tox -e lint
+
+      - name: Run static type checking
+        run: tox -e mypy
+
+      - name: Run mutation testing
+        run: tox -e mutmut
+
+      - name: Run tests
+        run: tox -e py3
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: mutmut-cache
+          path: .mutmut-cache
