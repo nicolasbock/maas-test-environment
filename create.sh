@@ -13,6 +13,7 @@ refresh=0
 console=0
 sync=0
 : ${http_proxy:=}
+: ${https_proxy:=}
 maas_deb=1
 maas_channel=2.7
 juju_channel=2.9
@@ -319,9 +320,12 @@ apt_proxy=
 snap_http_proxy=
 snap_https_proxy=
 if [[ -n ${http_proxy} ]]; then
-    apt_proxy="apt:\\n  http_proxy: ${http_proxy}"
-    snap_http_proxy="snap set system proxy.http=${http_proxy}"
-    snap_https_proxy="snap set system proxy.https=${http_proxy}"
+    if [[ -z ${https_proxy} ]]; then
+        https_proxy=${http_proxy}
+    fi
+    apt_proxy="apt:\\n  http_proxy: ${http_proxy}\\n  https_proxy: ${https_proxy}"
+    snap_http_proxy="snap set system proxy.http=${https_proxy}"
+    snap_https_proxy="snap set system proxy.https=${https_proxy}"
 fi
 
 awk -v http_proxy="${snap_http_proxy}" \
@@ -329,9 +333,6 @@ awk -v http_proxy="${snap_http_proxy}" \
     '{ gsub(/SNAP_HTTP_PROXY/, http_proxy); gsub(/SNAP_HTTPS_PROXY/, https_proxy) } { print($0) }' \
     commissioning-snap-proxy.sh \
     > ${tempdir}/commissioning-snap-proxy.sh
-
-snap set system proxy.http=http://squid-deb-proxy.virtual:8080
-snap set system proxy.https=http://squid-deb-proxy.virtual:8080
 
 sed \
     --expression "s:MAAS_SSH_PRIVATE_KEY:$(base64 --wrap 0 ~/.ssh/id_rsa_maas-test):" \
