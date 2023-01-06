@@ -43,7 +43,7 @@ jobs:
         run: tox -e mypy
 
       - name: Run mutation testing
-        run: tox -e mutmut
+        run: tox -e mutmut -- --no-progress
 
       - name: Run tests
         run: tox -e py3
