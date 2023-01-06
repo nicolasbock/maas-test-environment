@@ -15,6 +15,7 @@ import maaslab.main
 
 class TestCommandLine(unittest.TestCase):
     """Tests."""
+
     def test_version(self):
         """Test the `--version` argument."""
         options = None
@@ -43,6 +44,12 @@ class TestCommandLine(unittest.TestCase):
                 maaslab.main.parse_commandline()
         self.assertEqual(exit_code.exception.code, 2)
 
+    def test_default_series(self):
+        """Test the default series."""
+        with patch.object(sys, 'argv', ['prog']):
+            options = maaslab.main.parse_commandline()
+        self.assertEqual(options.series, 'focal')
+
     def test_series(self):
         """Test legal values of `--series` argument."""
         for series in ['bionic', 'focal', 'jammy']:
@@ -50,8 +57,15 @@ class TestCommandLine(unittest.TestCase):
                 options = maaslab.main.parse_commandline()
             self.assertEqual(options.series, series)
 
-    def test_default_series(self):
-        """Test the default series."""
+    def test_default_provider(self):
+        """Test the default virtualization provider argument."""
         with patch.object(sys, 'argv', ['prog']):
             options = maaslab.main.parse_commandline()
-        self.assertEqual(options.series, 'focal')
+        self.assertEqual(options.provider, 'libvirt')
+
+    def test_provider(self):
+        """Test virtualization provider argument."""
+        for provider in ['libvirt']:
+            with patch.object(sys, 'argv', ['prog', '--provider', provider]):
+                options = maaslab.main.parse_commandline()
+            self.assertEqual(options.provider, provider)

@@ -33,8 +33,12 @@ jobs:
         with:
           python-version: '${{ matrix.python }}'
 
-      - name: Install tox
-        run: DEBIAN_FRONTEND=noninteractive sudo apt install --no-install-recommends --yes tox
+      - name: Install packages
+        run: |
+          DEBIAN_FRONTEND=noninteractive sudo apt install \
+            --no-install-recommends --yes \
+            libvirt-dev \
+            tox
 
       - name: Run lint
         run: tox -e lint
