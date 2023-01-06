@@ -1,6 +1,7 @@
 # MaaS Test Environment
 
 [![CI](https://github.com/nicolasbock/maas-test-environment/actions/workflows/CI.yaml/badge.svg)](https://github.com/nicolasbock/maas-test-environment/actions/workflows/CI.yaml)
+[![Python CI](https://github.com/nicolasbock/maas-test-environment/actions/workflows/build_and_test.yaml/badge.svg)](https://github.com/nicolasbock/maas-test-environment/actions/workflows/build_and_test.yaml)
 
 This repository contains scripts that create a libvirt VM based MaaS
 environment.
