@@ -10,7 +10,7 @@ except PackageNotFoundError:
 
 
 def parse_commandline():
-    """Parse the commandline and return a NameSpace object."""
+    """Parse the command line and return a NameSpace object."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         '--version',
@@ -18,10 +18,16 @@ def parse_commandline():
         action='version',
         version=__version__,
     )
+    parser.add_argument(
+        '--series',
+        help='The series to deploy',  # pragma: no mutate
+        choices=['bionic', 'focal', 'jammy'],
+        default='focal',
+    )
     return parser.parse_args()
 
 
 def main():
     """The main function."""
-    options = parse_commandline()
-    print(options)
+    options = parse_commandline()  # pragma: no mutate
+    print(f'Deploying on {options.series}')
