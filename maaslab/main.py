@@ -2,6 +2,7 @@
 
 import argparse
 from importlib.metadata import version, PackageNotFoundError
+from maaslab.virtualization_libvirt import VirtualMachineLibvirt
 try:
     __version__ = version("maaslab")
 except PackageNotFoundError:
@@ -24,6 +25,12 @@ def parse_commandline():
         choices=['bionic', 'focal', 'jammy'],
         default='focal',
     )
+    parser.add_argument(
+        '--provider',
+        help='The virtualization provider',  # pragma: no mutate
+        choices=['libvirt'],
+        default='libvirt'
+    )
     return parser.parse_args()
 
 
@@ -31,3 +38,8 @@ def main():
     """The main function."""
     options = parse_commandline()  # pragma: no mutate
     print(f'Deploying on {options.series}')
+    if options.provider == 'libvirt':  # pragma: no mutate
+        maas_server = VirtualMachineLibvirt(options.series)  # pragma: no mutate
+    else:
+        raise Exception(f'[FIXME] cannot handle provider f{options.provider}')
+    print(maas_server)  # pragma: no mutate
