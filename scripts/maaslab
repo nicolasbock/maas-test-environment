@@ -1,0 +1,5 @@
+#!/bin/bash
+
+export PYTHONPATH=$(realpath $(dirname $0)/..)
+
+python3 ${PYTHONPATH}/maaslab/main.py $@
