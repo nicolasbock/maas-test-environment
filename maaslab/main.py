@@ -43,3 +43,7 @@ def main():
     else:
         raise Exception(f'[FIXME] cannot handle provider f{options.provider}')
     print(maas_server)  # pragma: no mutate
+
+
+if __name__ == '__main__':  # pragma: no mutate
+    main()
