@@ -1,15 +1,15 @@
 version: 2
 ethernets:
-  DEVICE:
+  TEMPLATE_DEVICE:
     match:
       # name: "DEVICE"
-      macaddress: "MACADDRESS"
-    dhcp4: DHCP
-    addresses: [ADDRESS]
+      macaddress: "TEMPLATE_MACADDRESS"
+    dhcp4: TEMPLATE_DHCP4
+    addresses: [TEMPLATE_ADDRESS4]
     mtu: 1500
-    gateway4: SUBNET_GATEWAY
+    gateway4: TEMPLATE_SUBNET_GATEWAY4
     nameservers:
-      addresses: NAMESERVERS
+      addresses: TEMPLATE_NAMESERVERS
     routes:
       - to: 0.0.0.0
-        via: DEFAULT_GATEWAY
+        via: TEMPLATE_DEFAULT_GATEWAY4
