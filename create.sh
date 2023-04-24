@@ -144,17 +144,17 @@ create_network() {
         ${network_options[@]}
         --network network=${net_name},model=virtio,address.type="pci",address.slot=$((slot_offset)),mac.address=${mac_address}
     )
-    sed --expression "s:DEVICE:ens${slot_offset}:" \
-        --expression "s:DHCP:false:" \
-        --expression "s/MACADDRESS/${mac_address}/" \
-        --expression "s:ADDRESS:$(get_host ${net_cidr} 1)/$(get_prefix ${net_cidr}):" \
+    sed --expression "s:TEMPLATE_DEVICE:ens${slot_offset}:" \
+        --expression "s:TEMPLATE_DHCP4:false:" \
+        --expression "s/TEMPLATE_MACADDRESS/${mac_address}/" \
+        --expression "s:TEMPLATE_ADDRESS4:$(get_host ${net_cidr} 1)/$(get_prefix ${net_cidr}):" \
         --expression $( [[ ${net_cidr} == ${MANAGEMENT_NET} ]] \
-        && echo "s:SUBNET_GATEWAY:$(get_gateway ${net_cidr}):" \
+        && echo "s:TEMPLATE_SUBNET_GATEWAY4:$(get_gateway ${net_cidr}):" \
         || echo '/gateway4.*$/d') \
         --expression $( [[ ${net_cidr} == ${MANAGEMENT_NET} ]] \
-        && echo "s/NAMESERVERS/[172.18.0.1]/" \
-        || echo '/nameservers.*$/d --expression /^.*NAMESERVERS.*/d') \
-        --expression "s:DEFAULT_GATEWAY:172.18.0.1:" \
+        && echo "s/TEMPLATE_NAMESERVERS/[172.18.0.1]/" \
+        || echo '/nameservers.*$/d --expression /^.*TEMPLATE_NAMESERVERS.*/d') \
+        --expression "s:TEMPLATE_DEFAULT_GATEWAY4:172.18.0.1:" \
         network-config.yaml > "${tempdir}"/new-interface.yaml
     yq eval-all --inplace \
         'select(fileIndex == 0) * select(fileIndex == 1)' \
