@@ -376,8 +376,10 @@ if (( console == 1 )); then
 fi
 
 # Deleting tempdirs
-rm -rf "${ci_tempdir}"
-rm -rf "${tempdir}"
+if [[ ${debug} = 0 ]]; then
+    rm -rf "${ci_tempdir}"
+    rm -rf "${tempdir}"
+fi
 
 MAAS_IP=$(get_host ${MANAGEMENT_NET} 1)
 echo "MAAS server can be reached at ${MAAS_IP}"
