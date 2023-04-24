@@ -83,7 +83,7 @@ fi
 VIRSH_IP=$(ip route show default | awk '{print $3}')
 
 virt-install \
-    --connect qemu+ssh://VIRSH_USER@${VIRSH_IP}/system \
+    --connect qemu+ssh://TEMPLATE_VIRSH_USER@${VIRSH_IP}/system \
     --name ${vm_id} \
     --memory ${memory} \
     --disk size=8 \
@@ -92,10 +92,10 @@ virt-install \
     --boot network \
     --noautoconsole
 
-ip=$(virsh --connect qemu+ssh://VIRSH_USER@${VIRSH_IP}/system \
+ip=$(virsh --connect qemu+ssh://TEMPLATE_VIRSH_USER@${VIRSH_IP}/system \
     domifaddr maas-server | grep ipv4 | awk '{print $4}' | awk -F/ '{print $1}')
 mac=$(xmllint --xpath "//source[@network='maas-oam-net']/../mac/@address" \
-    <(virsh --connect qemu+ssh://VIRSH_USER@${VIRSH_IP}/system dumpxml ${vm_id}) \
+    <(virsh --connect qemu+ssh://TEMPLATE_VIRSH_USER@${VIRSH_IP}/system dumpxml ${vm_id}) \
     | awk -F= '{print $2}' | tr --delete '"')
 
 maas admin machines create \
@@ -103,4 +103,4 @@ maas admin machines create \
     mac_addresses=${mac} \
     power_type=virsh \
     power_parameters_power_id=${vm_id} \
-    power_parameters_power_address=qemu+ssh://VIRSH_USER@${VIRSH_IP}/system
+    power_parameters_power_address=qemu+ssh://TEMPLATE_VIRSH_USER@${VIRSH_IP}/system

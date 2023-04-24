@@ -305,10 +305,10 @@ sed \
     --expression "s:TEMPLATE_DEFAULT_SERIES:${series}:" \
     maas-test-setup-new.sh > "${tempdir}"/maas-test-setup.sh
 sed \
-    --expression "s:VIRSH_USER:${USER}:g" \
+    --expression "s:TEMPLATE_VIRSH_USER:${USER}:g" \
     add-machine.sh > "${tempdir}"/add-machine.sh
 sed \
-    --expression "s:SSH_PUBLIC_KEY:$(cat ~/.ssh/id_rsa.pub):" \
+    --expression "s:TEMPLATE_SSH_PUBLIC_KEY:$(cat ~/.ssh/id_rsa.pub):" \
     meta-data > "${ci_tempdir}"/meta-data
 if [[ -f ~/.vimrc ]]; then
     cp ~/.vimrc "${tempdir}"
