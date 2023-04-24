@@ -1,7 +1,7 @@
 instance-id: id-12345
 local-hostname: maas-test
 public-keys:
-  - SSH_PUBLIC_KEY
+  - TEMPLATE_SSH_PUBLIC_KEY
 
 # Local Variables:
 # mode: yaml
