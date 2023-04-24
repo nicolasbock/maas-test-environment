@@ -303,6 +303,7 @@ sed \
     --expression "s:TEMPLATE_FABRIC_NAMES:${!networks[*]}:" \
     --expression "s:TEMPLATE_FABRIC_CIDRS:${networks[*]}:" \
     --expression "s:TEMPLATE_DEFAULT_SERIES:${series}:" \
+    --expression "s:TEMPLATE_HTTP_PROXY:${http_proxy}:" \
     maas-test-setup-new.sh > "${tempdir}"/maas-test-setup.sh
 sed \
     --expression "s:TEMPLATE_VIRSH_USER:${USER}:g" \
@@ -328,11 +329,18 @@ if [[ -n ${http_proxy} ]]; then
     snap_https_proxy="snap set system proxy.https=${https_proxy}"
 fi
 
-awk -v http_proxy="${snap_http_proxy}" \
-    -v https_proxy="${snap_https_proxy}" \
-    '{ gsub(/SNAP_HTTP_PROXY/, http_proxy); gsub(/SNAP_HTTPS_PROXY/, https_proxy) } { print($0) }' \
-    commissioning-snap-proxy.sh \
-    > ${tempdir}/commissioning-snap-proxy.sh
+if [[ -n "$snap_http_proxy" ]]; then
+    awk -v http_proxy="${snap_http_proxy}" \
+        -v https_proxy="${snap_https_proxy}" \
+        '{ gsub(/SNAP_HTTP_PROXY/, http_proxy); gsub(/SNAP_HTTPS_PROXY/, https_proxy) } { print($0) }' \
+        commissioning-snap-proxy.sh \
+        > ${tempdir}/commissioning-snap-proxy.sh
+else
+    cat <<'EOF' > ${tempdir}/commissioning-snap-proxy.sh
+#!/usr/bin/bash
+echo "Skipping commissioning of snap proxy since no http_proxy provided"
+EOF
+fi
 
 sed \
     --expression "s:TEMPLATE_MAAS_SSH_PRIVATE_KEY:$(base64 --wrap 0 ~/.ssh/id_rsa_maas-test):" \

@@ -15,12 +15,18 @@ get_gateway() {
 
 PS4='+(${BASH_SOURCE##*/}:${LINENO}) ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 
-PROXY_ADDRESS=squid-deb-proxy.virtual
-PROXY=http://${PROXY_ADDRESS}:8080
+PROXY_ADDRESS=TEMPLATE_HTTP_PROXY
+if [[ -n "$PROXY_ADDRESS" ]]; then
+    PROXY=http://${PROXY_ADDRESS}:8080
+else
+    PROXY=
+fi
 DNS=172.20.0.1
 
-snap set system proxy.http=${PROXY}
-snap set system proxy.https=${PROXY}
+if [[ -n "$PROXY" ]]; then
+    snap set system proxy.http=${PROXY}
+    snap set system proxy.https=${PROXY}
+fi
 
 # Fix colors in shell
 sed --in-place --expression 's,^#force,force,' ~ubuntu/.bashrc
@@ -31,9 +37,11 @@ DIR 38;5;75 # directory
 EOF
 cp ~ubuntu/.dircolors /root
 
-while ! ping -c 1 ${PROXY_ADDRESS}; do
-    sleep 1
-done
+if [[ -n "$PROXY_ADDRESS" ]]; then
+    while ! ping -c 1 ${PROXY_ADDRESS}; do
+        sleep 1
+    done
+fi
 
 snap install --channel TEMPLATE_JUJU_CHANNEL --classic juju
 snap install openstackclients
@@ -74,17 +82,26 @@ cat <<- EOF > ~ubuntu/juju/bootstrap.sh
 #!/bin/bash -eux
 
 declare -a model_config=()
-declare -a model_defaults=(
-    image-stream=released
-    default-series=TEMPLATE_DEFAULT_SERIES
-    no-proxy=127.0.0.1,localhost,::1,172.18.0.0/16
-    apt-http-proxy=${PROXY}
-    apt-https-proxy=${PROXY}
-    snap-http-proxy=${PROXY}
-    snap-https-proxy=${PROXY}
-    juju-http-proxy=${PROXY}
-    juju-https-proxy=${PROXY}
-)
+
+if [[ -n "$PROXY" ]]; then
+    declare -a model_defaults=(
+        image-stream=released
+        default-series=TEMPLATE_DEFAULT_SERIES
+        no-proxy=127.0.0.1,localhost,::1,172.18.0.0/16
+        apt-http-proxy=${PROXY}
+        apt-https-proxy=${PROXY}
+        snap-http-proxy=${PROXY}
+        snap-https-proxy=${PROXY}
+        juju-http-proxy=${PROXY}
+        juju-https-proxy=${PROXY}
+    )
+else
+    declare -a model_defaults=(
+        image-stream=released
+        default-series=TEMPLATE_DEFAULT_SERIES
+        no-proxy=127.0.0.1,localhost,::1,172.18.0.0/16
+    )
+fi
 
 for d in \${model_defaults[@]}; do
     model_config+=( "--config \$d" )
@@ -152,7 +169,9 @@ done
 maas admin maas set-config name=maas_name value=maaslab
 maas admin maas set-config name=upstream_dns value=${DNS}
 maas admin maas set-config name=dnssec_validation value=yes
-maas admin maas set-config name=http_proxy value=${PROXY}
+if [[ -n "$PROXY" ]]; then
+    maas admin maas set-config name=http_proxy value=${PROXY}
+fi
 maas admin maas set-config name=ntp_server value=ntp.ubuntu.com
 maas admin maas set-config name=curtin_verbose value=true
 maas admin maas set-config name=remote_syslog value=localhost
