@@ -294,15 +294,15 @@ if ! grep --quiet "$(cat ~/.ssh/id_rsa_maas-test.pub)" ~/.ssh/authorized_keys; t
 fi
 
 sed \
-    --expression "s:LP_KEYNAME:${lp_keyname}:g" \
-    --expression "s:POSTGRESQL:$( ((postgresql == 1)) && echo "yes" ):g" \
-    --expression "s:MAAS_CHANNEL:${maas_channel}:g" \
-    --expression "s:JUJU_CHANNEL:${juju_channel}:g" \
-    --expression "s:VIRSH_USER:${USER}:g" \
-    --expression "s:MAAS_FROM_DEB:$( ((maas_deb == 1)) && echo "yes"):" \
-    --expression "s:FABRIC_NAMES:${!networks[*]}:" \
-    --expression "s:FABRIC_CIDRS:${networks[*]}:" \
-    --expression "s:DEFAULT_SERIES:${series}:" \
+    --expression "s:TEMPLATE_LP_KEYNAME:${lp_keyname}:g" \
+    --expression "s:TEMPLATE_POSTGRESQL:$( ((postgresql == 1)) && echo "yes" ):g" \
+    --expression "s:TEMPLATE_MAAS_CHANNEL:${maas_channel}:g" \
+    --expression "s:TEMPLATE_JUJU_CHANNEL:${juju_channel}:g" \
+    --expression "s:TEMPLATE_VIRSH_USER:${USER}:g" \
+    --expression "s:TEMPLATE_MAAS_FROM_DEB:$( ((maas_deb == 1)) && echo "yes"):" \
+    --expression "s:TEMPLATE_FABRIC_NAMES:${!networks[*]}:" \
+    --expression "s:TEMPLATE_FABRIC_CIDRS:${networks[*]}:" \
+    --expression "s:TEMPLATE_DEFAULT_SERIES:${series}:" \
     maas-test-setup-new.sh > "${tempdir}"/maas-test-setup.sh
 sed \
     --expression "s:VIRSH_USER:${USER}:g" \

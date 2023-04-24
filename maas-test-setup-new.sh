@@ -35,17 +35,17 @@ while ! ping -c 1 ${PROXY_ADDRESS}; do
     sleep 1
 done
 
-snap install --channel JUJU_CHANNEL --classic juju
+snap install --channel TEMPLATE_JUJU_CHANNEL --classic juju
 snap install openstackclients
 
 # Remove virsh networks to prevent MAAS from failing to start during DHCP probe.
 virsh net-destroy default || echo "ignoring"
 virsh net-autostart --disable default || echo "ignoring"
 
-apt-add-repository --yes ppa:maas/MAAS_CHANNEL
+apt-add-repository --yes ppa:maas/TEMPLATE_MAAS_CHANNEL
 apt-get update
 
-if [[ MAAS_FROM_DEB == yes ]]; then
+if [[ TEMPLATE_MAAS_FROM_DEB == yes ]]; then
     DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends maas
     maas_db_password=$(sudo grep dbc_dbpass= /etc/dbconfig-common/maas-region-controller.conf | sed -e "s:^.*'\([^']*\)':\1:")
 else
@@ -62,7 +62,7 @@ if ! maas admin account list-authorisation-tokens; then
         --username ubuntu \
         --password ubuntu \
         --email maastest@virtual \
-        $([[ "LP_KEYNAME" != undefined ]] && echo "--ssh-import lp:LP_KEYNAME")
+        $([[ "TEMPLATE_LP_KEYNAME" != undefined ]] && echo "--ssh-import lp:TEMPLATE_LP_KEYNAME")
 fi
 
 maas apikey --username ubuntu > /root/ubuntu-api-key
@@ -76,7 +76,7 @@ cat <<- EOF > ~ubuntu/juju/bootstrap.sh
 declare -a model_config=()
 declare -a model_defaults=(
     image-stream=released
-    default-series=DEFAULT_SERIES
+    default-series=TEMPLATE_DEFAULT_SERIES
     no-proxy=127.0.0.1,localhost,::1,172.18.0.0/16
     apt-http-proxy=${PROXY}
     apt-https-proxy=${PROXY}
@@ -169,15 +169,15 @@ for series in focal bionic; do
         arches="amd64" subarches="*" labels="*" || :
 done
 
-while ! maas admin maas set-config name=commissioning_distro_series value=DEFAULT_SERIES; do
+while ! maas admin maas set-config name=commissioning_distro_series value=TEMPLATE_DEFAULT_SERIES; do
     sleep 10
 done
-while ! maas admin maas set-config name=default_distro_series value=DEFAULT_SERIES; do
+while ! maas admin maas set-config name=default_distro_series value=TEMPLATE_DEFAULT_SERIES; do
     sleep 10
 done
 
-declare -a fabric_names=( FABRIC_NAMES )
-declare -a fabric_cidrs=( FABRIC_CIDRS )
+declare -a fabric_names=( TEMPLATE_FABRIC_NAMES )
+declare -a fabric_cidrs=( TEMPLATE_FABRIC_CIDRS )
 declare -A fabrics=()
 declare oam_network_name
 
@@ -245,7 +245,7 @@ maas admin vlan update "${fabric}" 0 dhcp_on=true \
 # Copy ssh keys to MAAS controller so that it can talk to the libvirt daemon on
 # the hypervisor.
 declare ssh_root_dir
-if [[ "MAAS_FROM_DEB" == yes ]]; then
+if [[ "TEMPLATE_MAAS_FROM_DEB" == yes ]]; then
     ssh_root_dir=/var/lib/maas/.ssh
 else
     ssh_root_dir=/var/snap/maas/current/root/.ssh
