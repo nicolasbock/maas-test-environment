@@ -1,6 +1,6 @@
 <network>
-  <name>NAME</name>
+  <name>TEMPLATE_NET_NAME</name>
   <forward mode='route'/>
-  <ip address='NETWORK4' netmask='NETMASK'/>
+  <ip address='TEMPLATE_NETWORK4' netmask='TEMPLATE_NETMASK4'/>
   <!-- <ip family='ipv6' address='NETWORK6' prefix='64'/> -->
 </network>

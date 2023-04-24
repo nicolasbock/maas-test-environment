@@ -133,9 +133,9 @@ create_network() {
     if [[ ${net_name} =~ oam ]]; then
         template=maas-net-nat.xml
     fi
-    virsh net-define <(sed --expression "s:NAME:${net_name}:" \
-        --expression "s/NETMASK/$(get_netmask ${net_cidr})/" \
-        --expression "s/NETWORK4/$(get_gateway ${net_cidr})/" \
+    virsh net-define <(sed --expression "s:TEMPLATE_NET_NAME:${net_name}:" \
+        --expression "s/TEMPLATE_NETMASK4/$(get_netmask ${net_cidr})/" \
+        --expression "s/TEMPLATE_NETWORK4/$(get_gateway ${net_cidr})/" \
         ${template})
 
     virsh net-autostart ${net_name}
