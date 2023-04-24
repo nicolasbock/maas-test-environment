@@ -335,16 +335,16 @@ awk -v http_proxy="${snap_http_proxy}" \
     > ${tempdir}/commissioning-snap-proxy.sh
 
 sed \
-    --expression "s:MAAS_SSH_PRIVATE_KEY:$(base64 --wrap 0 ~/.ssh/id_rsa_maas-test):" \
-    --expression "s:MAAS_SSH_PUBLIC_KEY:$(base64 --wrap 0 ~/.ssh/id_rsa_maas-test.pub):" \
-    --expression "s:SSH_PUBLIC_KEY:$(cat ~/.ssh/id_rsa.pub):" \
-    --expression "s:SETUP_SCRIPT:$(base64 --wrap 0 ${tempdir}/maas-test-setup.sh):" \
-    --expression "s:ADD_MACHINE_SCRIPT:$(base64 --wrap 0 ${tempdir}/add-machine.sh):" \
-    --expression "s:VIMRC:$(base64 --wrap 0 ${tempdir}/.vimrc):" \
-    --expression "s:COMMISSIONING_SNAP_PROXY:$(base64 --wrap 0 ${tempdir}/commissioning-snap-proxy.sh):" \
-    --expression "s:SYNC:${sync}:" \
+    --expression "s:TEMPLATE_MAAS_SSH_PRIVATE_KEY:$(base64 --wrap 0 ~/.ssh/id_rsa_maas-test):" \
+    --expression "s:TEMPLATE_MAAS_SSH_PUBLIC_KEY:$(base64 --wrap 0 ~/.ssh/id_rsa_maas-test.pub):" \
+    --expression "s:TEMPLATE_SSH_PUBLIC_KEY:$(cat ~/.ssh/id_rsa.pub):" \
+    --expression "s:TEMPLATE_SETUP_SCRIPT:$(base64 --wrap 0 ${tempdir}/maas-test-setup.sh):" \
+    --expression "s:TEMPLATE_ADD_MACHINE_SCRIPT:$(base64 --wrap 0 ${tempdir}/add-machine.sh):" \
+    --expression "s:TEMPLATE_VIMRC:$(base64 --wrap 0 ${tempdir}/.vimrc):" \
+    --expression "s:TEMPLATE_COMMISSIONING_SNAP_PROXY:$(base64 --wrap 0 ${tempdir}/commissioning-snap-proxy.sh):" \
+    --expression "s:TEMPLATE_SYNC:${sync}:" \
     user-data |
-    awk -v p="${apt_proxy}" '{ gsub(/APT_PROXY_SETTING/, p) } { print($0) }' \
+    awk -v p="${apt_proxy}" '{ gsub(/TEMPLATE_APT_PROXY_SETTING/, p) } { print($0) }' \
     > "${ci_tempdir}"/user-data
 
 echo "Creating config drive"
