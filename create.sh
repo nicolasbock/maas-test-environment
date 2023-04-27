@@ -177,6 +177,7 @@ Usage:
 -s | --sync          Sync MAAS images (default is not to)
 -m | --maas-channel  The MAAS channel (default: ${maas_channel})
 -j | --juju-channel  The juju channel (default: ${juju_channel})
+                     Can also specify risk-level, e.g. 3.1/beta
 -k | --lp-keyname    The launchpad key name to import (default: ${lp_keyname})
 -p | --postgresql    Use postgresql package instead of maas-test-db (default: ${postgresql})
 --maas-deb           Install MAAS from deb (not snap)
@@ -240,6 +241,17 @@ if [[ ${debug} = 1 ]]; then
     echo "setting debug output"
     set -x
     PS4='+(${BASH_SOURCE##*/}:${LINENO}) ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
+fi
+
+if echo $juju_channel | grep -q /; then
+    juju_track=$( echo $juju_channel | awk -F/ '{print $1}')
+    juju_risk=$( echo $juju_channel | awk -F/ '{print $2}')
+    juju_branch=$( echo $juju_channel | awk -F/ '{print $3}')
+else
+    juju_track=$juju_channel
+    juju_risk=stable
+    juju_branch=
+    juju_channel="$juju_track/$juju_risk"
 fi
 
 if [[ ${refresh} = 1 ]]; then

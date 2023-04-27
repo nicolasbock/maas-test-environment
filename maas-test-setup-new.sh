@@ -213,7 +213,10 @@ for i in $(seq 0 $(( ${#fabric_names[@]} - 1 ))); do
         oam_network_name=${fabric_name}
     fi
     space_id=$(maas admin spaces create name="${fabric_name}" | jq '.id')
-    fabric_id=$(maas admin spaces read | jq --arg cidr ${fabric_cidr} '.[].subnets[] | select(.cidr == $cidr) | .vlan.fabric_id')
+    fabric_id=''
+    while [[ -z "$fabric_id" ]]; do
+        fabric_id=$(maas admin spaces read | jq --arg cidr ${fabric_cidr} '.[].subnets[] | select(.cidr == $cidr) | .vlan.fabric_id')
+    done
     maas admin fabric update "${fabric_id}" name="${fabric_name}"
     maas admin vlan update "${fabric_id}" 0 space="${fabric_name}"
 done
