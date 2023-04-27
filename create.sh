@@ -252,8 +252,8 @@ if (( $(bc -l <<< "${maas_channel} <= 2.8") )) && [[ ${series} != bionic ]]; the
     exit 1
 fi
 
-if (( $(bc -l <<< "${maas_channel} > 2.8") )) && [[ ${series} != focal ]]; then
-    echo "MAAS channels > 2.8 require Focal"
+if (( $(bc -l <<< "${maas_channel} > 2.8") )) && [[ ${series} != focal ]] && [[ ${series} != jammy ]]; then
+    echo "MAAS channels > 2.8 require Focal or Jammy"
     exit 1
 fi
 
@@ -293,6 +293,14 @@ if ! grep --quiet "$(cat ~/.ssh/id_rsa_maas-test.pub)" ~/.ssh/authorized_keys; t
     cat ~/.ssh/id_rsa_maas-test.pub >> ~/.ssh/authorized_keys
 fi
 
+# As of 2023-04 jammy can not be used for commissioning, therefore
+# need to down-level the default series
+if [[ "$series" == jammy ]]; then
+    default_series=focal
+else
+    default_series="$series"
+fi
+
 sed \
     --expression "s:TEMPLATE_LP_KEYNAME:${lp_keyname}:g" \
     --expression "s:TEMPLATE_POSTGRESQL:$( ((postgresql == 1)) && echo "yes" ):g" \
@@ -302,7 +310,7 @@ sed \
     --expression "s:TEMPLATE_MAAS_FROM_DEB:$( ((maas_deb == 1)) && echo "yes"):" \
     --expression "s:TEMPLATE_FABRIC_NAMES:${!networks[*]}:" \
     --expression "s:TEMPLATE_FABRIC_CIDRS:${networks[*]}:" \
-    --expression "s:TEMPLATE_DEFAULT_SERIES:${series}:" \
+    --expression "s:TEMPLATE_DEFAULT_SERIES:${default_series}:" \
     --expression "s;TEMPLATE_HTTP_PROXY;${http_proxy};" \
     maas-test-setup-new.sh > "${tempdir}"/maas-test-setup.sh
 sed \
