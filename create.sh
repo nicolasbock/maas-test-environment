@@ -303,7 +303,7 @@ sed \
     --expression "s:TEMPLATE_FABRIC_NAMES:${!networks[*]}:" \
     --expression "s:TEMPLATE_FABRIC_CIDRS:${networks[*]}:" \
     --expression "s:TEMPLATE_DEFAULT_SERIES:${series}:" \
-    --expression "s:TEMPLATE_HTTP_PROXY:${http_proxy}:" \
+    --expression "s;TEMPLATE_HTTP_PROXY;${http_proxy};" \
     maas-test-setup-new.sh > "${tempdir}"/maas-test-setup.sh
 sed \
     --expression "s:TEMPLATE_VIRSH_USER:${USER}:g" \
