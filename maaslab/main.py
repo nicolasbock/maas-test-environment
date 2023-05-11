@@ -10,6 +10,10 @@ except PackageNotFoundError:
     __version__ = 'undefined'
 
 
+class GeneralException(Exception):
+    """A general exception."""
+
+
 def parse_commandline():
     """Parse the command line and return a NameSpace object."""
     parser = argparse.ArgumentParser()
@@ -39,9 +43,11 @@ def main():
     options = parse_commandline()  # pragma: no mutate
     print(f'Deploying on {options.series}')
     if options.provider == 'libvirt':  # pragma: no mutate
-        maas_server = VirtualMachineLibvirt(options.series)  # pragma: no mutate
+        maas_server = VirtualMachineLibvirt(
+            options.series)  # pragma: no mutate
     else:
-        raise Exception(f'[FIXME] cannot handle provider f{options.provider}')
+        raise GeneralException(
+            f'[FIXME] cannot handle provider f{options.provider}')
     print(maas_server)  # pragma: no mutate
 
 
