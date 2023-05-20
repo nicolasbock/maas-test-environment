@@ -2,8 +2,8 @@
 
 set -u -e
 
-NETWORK_NAME_PREFIX=maas
-VM_NAME=maas-server
+: ${NAME_PREFIX:=maas-test}
+VM_NAME=${NAME_PREFIX}-server-1
 VCPUS=2
 PROFILE=maas-profile.yaml
 
@@ -20,14 +20,15 @@ juju_channel=2.9
 lp_keyname=undefined
 postgresql=1
 
-MANAGEMENT_NET=172.18.0.0/24
+: ${NETWORK_PREFIX:=172.18}
 declare -A networks=(
-    [${NETWORK_NAME_PREFIX}-oam-net]=${MANAGEMENT_NET}
-    [${NETWORK_NAME_PREFIX}-admin-net]=172.18.1.0/24
-    [${NETWORK_NAME_PREFIX}-internal-net]=172.18.2.0/24
-    [${NETWORK_NAME_PREFIX}-public-net]=172.18.3.0/24
-    [${NETWORK_NAME_PREFIX}-storage-net]=172.18.4.0/24
+    [${NAME_PREFIX}-oam-net]=${NETWORK_PREFIX}.0.0/24
+    [${NAME_PREFIX}-adm-net]=${NETWORK_PREFIX}.1.0/24
+    [${NAME_PREFIX}-int-net]=${NETWORK_PREFIX}.2.0/24
+    [${NAME_PREFIX}-pub-net]=${NETWORK_PREFIX}.3.0/24
+    [${NAME_PREFIX}-stg-net]=${NETWORK_PREFIX}.4.0/24
 )
+MANAGEMENT_NET=${NETWORK_PREFIX}.0.0/24 # a.k.a oam-net
 
 upload_volume() {
     local size
@@ -152,9 +153,9 @@ create_network() {
         && echo "s:TEMPLATE_SUBNET_GATEWAY4:$(get_gateway ${net_cidr}):" \
         || echo '/gateway4.*$/d') \
         --expression $( [[ ${net_cidr} == ${MANAGEMENT_NET} ]] \
-        && echo "s/TEMPLATE_NAMESERVERS/[172.18.0.1]/" \
+        && echo "s/TEMPLATE_NAMESERVERS/[${NETWORK_PREFIX}.0.1]/" \
         || echo '/nameservers.*$/d --expression /^.*TEMPLATE_NAMESERVERS.*/d') \
-        --expression "s:TEMPLATE_DEFAULT_GATEWAY4:172.18.0.1:" \
+        --expression "s:TEMPLATE_DEFAULT_GATEWAY4:${NETWORK_PREFIX}.0.1:" \
         network-config.yaml > "${tempdir}"/new-interface.yaml
     yq eval-all --inplace \
         'select(fileIndex == 0) * select(fileIndex == 1)' \
@@ -282,7 +283,7 @@ tempdir=$(TMPDIR=${PWD} mktemp --directory)
 
 echo "Configuring networks"
 
-readarray -t existing_networks < <(virsh net-list --name | grep ${NETWORK_NAME_PREFIX})
+readarray -t existing_networks < <(virsh net-list --name | grep ${NAME_PREFIX})
 for network in ${existing_networks[@]}; do
     virsh net-destroy ${network}
     virsh net-undefine ${network}
@@ -298,11 +299,11 @@ done
 echo "network-config:"
 cat "${ci_tempdir}"/network-config
 
-if ! ssh-keygen -l -f ~/.ssh/id_rsa_maas-test; then
-    ssh-keygen -N '' -f ~/.ssh/id_rsa_maas-test
+if ! ssh-keygen -l -f ~/.ssh/id_rsa_maas; then
+    ssh-keygen -N '' -f ~/.ssh/id_rsa_maas
 fi
-if ! grep --quiet "$(cat ~/.ssh/id_rsa_maas-test.pub)" ~/.ssh/authorized_keys; then
-    cat ~/.ssh/id_rsa_maas-test.pub >> ~/.ssh/authorized_keys
+if ! grep --quiet "$(cat ~/.ssh/id_rsa_maas.pub)" ~/.ssh/authorized_keys; then
+    cat ~/.ssh/id_rsa_maas.pub >> ~/.ssh/authorized_keys
 fi
 
 # As of 2023-04 jammy can not be used for commissioning, therefore
@@ -324,11 +325,13 @@ sed \
     --expression "s:TEMPLATE_FABRIC_CIDRS:${networks[*]}:" \
     --expression "s:TEMPLATE_DEFAULT_SERIES:${default_series}:" \
     --expression "s;TEMPLATE_HTTP_PROXY;${http_proxy};" \
+    --expression "s;TEMPLATE_NETWORK_PREFIX;${NETWORK_PREFIX};" \
     maas-test-setup-new.sh > "${tempdir}"/maas-test-setup.sh
 sed \
     --expression "s:TEMPLATE_VIRSH_USER:${USER}:g" \
     add-machine.sh > "${tempdir}"/add-machine.sh
 sed \
+    --expression "s:TEMPLATE_VM_NAME:${VM_NAME}:" \
     --expression "s:TEMPLATE_SSH_PUBLIC_KEY:$(cat ~/.ssh/id_rsa.pub):" \
     meta-data > "${ci_tempdir}"/meta-data
 if [[ -f ~/.vimrc ]]; then
@@ -363,8 +366,8 @@ EOF
 fi
 
 sed \
-    --expression "s:TEMPLATE_MAAS_SSH_PRIVATE_KEY:$(base64 --wrap 0 ~/.ssh/id_rsa_maas-test):" \
-    --expression "s:TEMPLATE_MAAS_SSH_PUBLIC_KEY:$(base64 --wrap 0 ~/.ssh/id_rsa_maas-test.pub):" \
+    --expression "s:TEMPLATE_MAAS_SSH_PRIVATE_KEY:$(base64 --wrap 0 ~/.ssh/id_rsa_maas):" \
+    --expression "s:TEMPLATE_MAAS_SSH_PUBLIC_KEY:$(base64 --wrap 0 ~/.ssh/id_rsa_maas.pub):" \
     --expression "s:TEMPLATE_SSH_PUBLIC_KEY:$(cat ~/.ssh/id_rsa.pub):" \
     --expression "s:TEMPLATE_SETUP_SCRIPT:$(base64 --wrap 0 ${tempdir}/maas-test-setup.sh):" \
     --expression "s:TEMPLATE_ADD_MACHINE_SCRIPT:$(base64 --wrap 0 ${tempdir}/add-machine.sh):" \
