@@ -1,5 +1,5 @@
 instance-id: id-12345
-local-hostname: maas-test
+local-hostname: TEMPLATE_VM_NAME
 public-keys:
   - TEMPLATE_SSH_PUBLIC_KEY
 

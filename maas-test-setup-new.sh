@@ -87,7 +87,7 @@ if [[ -n "$PROXY" ]]; then
     declare -a model_defaults=(
         image-stream=released
         default-series=TEMPLATE_DEFAULT_SERIES
-        no-proxy=127.0.0.1,localhost,::1,172.18.0.0/16
+        no-proxy=127.0.0.1,localhost,::1,TEMPLATE_NETWORK_PREFIX.0.0/16
         apt-http-proxy=${PROXY}
         apt-https-proxy=${PROXY}
         snap-http-proxy=${PROXY}
@@ -99,7 +99,7 @@ else
     declare -a model_defaults=(
         image-stream=released
         default-series=TEMPLATE_DEFAULT_SERIES
-        no-proxy=127.0.0.1,localhost,::1,172.18.0.0/16
+        no-proxy=127.0.0.1,localhost,::1,TEMPLATE_NETWORK_PREFIX.0.0/16
     )
 fi
 
@@ -124,7 +124,7 @@ Host *
 Host 192.168.0.200
     IdentityFile ~/.ssh/id_rsa
 
-Host 172.18.*.*
+Host TEMPLATE_NETWORK_PREFIX.*.*
     IdentityFile ~/testkey.priv
 EOF
 chown -R ubuntu: ~ubuntu/.ssh/config
@@ -137,7 +137,7 @@ clouds:
   mymaas:
     type: maas
     auth-types: [ oauth1 ]
-    endpoint: http://172.18.0.2:5240/MAAS/
+    endpoint: http://TEMPLATE_NETWORK_PREFIX.0.2:5240/MAAS/
 
 __EOF__
 cat << __EOF__ > /tmp/mymaas_credentials.txt
@@ -223,7 +223,7 @@ done
 
 default_gateway=$(get_host ${fabrics[${oam_network_name}]} 1)
 
-ab=172.18
+ab=TEMPLATE_NETWORK_PREFIX
 gw=${ab}.0.1
 cidr=${ab}.0.0/24
 subnet_id=$(maas admin subnets read | jq -r ".[] | select(.cidr==\"${cidr}\").id")
