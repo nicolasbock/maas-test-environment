@@ -314,6 +314,50 @@ else
     default_series="$series"
 fi
 
+
+# From https://stackoverflow.com/questions/6174220/parse-url-in-shell-script
+# Following regex is based on https://www.rfc-editor.org/rfc/rfc3986#appendix-B with
+# additional sub-expressions to split authority into userinfo, host and port
+#
+readonly URI_REGEX='^(([^:/?#]+):)?(//((([^:/?#]+)@)?([^:/?#]+)(:([0-9]+))?))?(/([^?#]*))(\?([^#]*))?(#(.*))?'
+#                    ↑↑            ↑  ↑↑↑            ↑         ↑ ↑            ↑ ↑        ↑  ↑        ↑ ↑
+#                    |2 scheme     |  ||6 userinfo   7 host    | 9 port       | 11 rpath |  13 query | 15 fragment
+#                    1 scheme:     |  |5 userinfo@             8 :…           10 path    12 ?…       14 #…
+#                                  |  4 authority
+#                                  3 //…
+
+parse_host () {
+    [[ "$@" =~ $URI_REGEX ]] && echo "${BASH_REMATCH[7]}"
+}
+
+parse_port () {
+    [[ "$@" =~ $URI_REGEX ]] && echo "${BASH_REMATCH[9]}"
+}
+
+apt_proxy=
+snap_http_proxy=
+snap_https_proxy=
+if [[ -n ${http_proxy} ]]; then
+    if echo $http_proxy | grep -q :; then
+        http_proxy_address=$(parse_host "$http_proxy")
+        http_proxy_port=$(parse_port "$http_proxy")
+    else
+        http_proxy_address=$(parse_host "$http_proxy")
+        http_proxy_port=8080
+    fi
+    http_proxy=$http_proxy_address:$http_proxy_port
+    if [[ -z ${https_proxy} ]]; then
+        https_proxy=${http_proxy}
+    fi
+    apt_proxy="apt:\\n  http_proxy: ${http_proxy_address}\\n  https_proxy: ${http_proxy_address}"
+    snap_http_proxy="snap set system proxy.http=${http_proxy_address}"
+    snap_https_proxy="snap set system proxy.https=${http_proxy_address}"
+else
+    http_proxy_address=
+    http_proxy_port=
+    http_proxy=
+fi
+
 sed \
     --expression "s:TEMPLATE_LP_KEYNAME:${lp_keyname}:g" \
     --expression "s:TEMPLATE_POSTGRESQL:$( ((postgresql == 1)) && echo "yes" ):g" \
@@ -324,7 +368,8 @@ sed \
     --expression "s:TEMPLATE_FABRIC_NAMES:${!networks[*]}:" \
     --expression "s:TEMPLATE_FABRIC_CIDRS:${networks[*]}:" \
     --expression "s:TEMPLATE_DEFAULT_SERIES:${default_series}:" \
-    --expression "s;TEMPLATE_HTTP_PROXY;${http_proxy};" \
+    --expression "s;TEMPLATE_HTTP_PROXY_ADDRESS;${http_proxy_address};" \
+    --expression "s;TEMPLATE_HTTP_PROXY_PORT;${http_proxy_port};" \
     --expression "s;TEMPLATE_NETWORK_PREFIX;${NETWORK_PREFIX};" \
     maas-test-setup-new.sh > "${tempdir}"/maas-test-setup.sh
 sed \
@@ -338,18 +383,6 @@ if [[ -f ~/.vimrc ]]; then
     cp ~/.vimrc "${tempdir}"
 else
     touch "${tempdir}"/.vimrc
-fi
-
-apt_proxy=
-snap_http_proxy=
-snap_https_proxy=
-if [[ -n ${http_proxy} ]]; then
-    if [[ -z ${https_proxy} ]]; then
-        https_proxy=${http_proxy}
-    fi
-    apt_proxy="apt:\\n  http_proxy: ${http_proxy}\\n  https_proxy: ${https_proxy}"
-    snap_http_proxy="snap set system proxy.http=${https_proxy}"
-    snap_https_proxy="snap set system proxy.https=${https_proxy}"
 fi
 
 if [[ -n "$snap_http_proxy" ]]; then
