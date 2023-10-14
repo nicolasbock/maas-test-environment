@@ -7,7 +7,7 @@ VM_NAME=${NAME_PREFIX}-server-1
 VCPUS=2
 PROFILE=maas-profile.yaml
 
-series=focal
+series=bionic
 debug=0
 refresh=0
 console=0

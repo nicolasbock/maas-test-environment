@@ -24,13 +24,37 @@ jobs:
           set -eux
           sudo apt update
           sudo apt install --yes \
+            libvirt-daemon-system \
             python3-pip \
-            qemu-system \
-            libvirt-daemon-system
+            qemu-system
           pip install bashate
 
-      - name: Set up user accounts
-        run: sudo usermod --append --groups libvirt $(id --user --name)
-
-      - name: Lint
+      - name: Lint shell scripts
         run: bashate --verbose --ignore E006,E044 *.sh
+
+      - name: Set up user accounts
+        run: |
+          set -e -u -x
+
+          # Add user to `libvirt` group
+          sudo usermod --append --groups libvirt $(id --user --name)
+          ORIGINAL_GROUP=$(id --group --name)
+
+          # Verify group memberships
+          id
+          id $(id --user --name)
+          grep libvirt /etc/group
+          sudo grep libvirt /etc/gshadow
+
+          # Create new shell to fix group membership
+          newgrp libvirt
+          id
+
+          newgrp
+          id
+
+      - name: Verify groups
+        run: id
+
+      - name: Create MAAS server
+        run: sudo --group libvirt ./create.sh --debug
